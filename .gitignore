@@ -31,3 +31,11 @@ htmlcov/
 *~
 
 docs/*
+
+# Local editor / annotation tooling
+.clang-format
+.gitattributes
+.vscode/
+
+# Annotation (auto-generated)
+.annotation/
