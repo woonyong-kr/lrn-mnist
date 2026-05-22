@@ -49,17 +49,14 @@
 # 저장소로 이동
 cd mnist-lab
 
-# Conda 환경 생성 (Python 3.11)
-conda create -n mnist-nn python=3.11 -y
+# Conda 환경 생성/업데이트
+make setup
 
 # 환경 활성화
 conda activate mnist-nn
 
-# 의존성 설치
-pip install -r requirements.txt
-
 # 테스트 실행 (선택)
-pytest tests/ -v
+make test
 ```
 
 - Miniforge가 PATH에 없으면: `~/miniforge3/bin/conda activate mnist-nn` 처럼 전체 경로로 실행
@@ -76,20 +73,21 @@ pytest tests/ -v
 # 저장소로 이동
 cd mnist-lab
 
-# Conda 환경 생성 (Python 3.11)
-conda create -n mnist-nn python=3.11 -y
+# Conda 환경 생성/업데이트
+make setup
 
 # 환경 활성화
 conda activate mnist-nn
 
-# 의존성 설치
-pip install -r requirements.txt
-
 # 테스트 실행 (선택)
-pytest tests/ -v
+make test
 ```
 
 - PATH에 없으면: `C:\Users\<사용자명>\anaconda3\Scripts\conda.exe activate mnist-nn` 처럼 전체 경로로 실행
+- `make` 명령이 없으면 아래 명령으로 같은 환경 설정을 실행할 수 있습니다.
+  ```bash
+  conda run -n base python scripts/setup_env.py --conda conda --env mnist-nn --file environment.yml
+  ```
 - **환경 비활성화**: `conda deactivate`
 
 ### 2.4 MNIST 데이터 (data 폴더)
@@ -98,7 +96,7 @@ pytest tests/ -v
 - **`load_mnist()`**는 이미 구현되어 있습니다.
   - `data/mnist.npz`가 있으면 해당 파일을 로드합니다.
   - 없으면 URL에서 다운로드한 뒤 `data/` 폴더에 저장한 후 로드합니다.
-- 데이터를 미리 받으려면 프로젝트 루트에서 **`python download_mnist.py`**를 한 번 실행하면 됩니다.
+- 데이터를 미리 받으려면 프로젝트 루트에서 **`make download`**를 한 번 실행하면 됩니다.
 
 ---
 
@@ -109,7 +107,8 @@ mnist-lab/
 ├── .gitignore                     # data/mnist.npz, __pycache__ 등 제외
 ├── README.md                      # 이 파일 (과제 안내·환경)
 ├── REPORT.md                      # 제출용 보고서 (형식 예시)
-├── requirements.txt               # numpy, matplotlib, pytest
+├── environment.yml                # Conda 환경과 의존성 정의
+├── Makefile                       # setup/test/download 명령
 ├── download_mnist.py              # MNIST를 data/에 미리 다운로드 (선택)
 ├── mnist_lab.ipynb                # Colab/로컬용 노트북 (환경설정 → 데이터 로드 → 학습 → 평가)
 ├── data/                          # MNIST 데이터 (mnist.npz는 load_mnist() 또는 download_mnist.py로 생성)
@@ -153,4 +152,3 @@ mnist-lab/
   - **4. 실험 환경**: Python·라이브러리, 학습 소요 시간
   - **5. 결과**: 테스트 정확도(%), 총 파라미터 수, 손실 커브 (그래프 또는 요약)
   - **6. 회고**: 수렴 여부, 과적합/과소적합, 구조·하이퍼파라미터 변경 시도와 결과
-
