@@ -112,14 +112,19 @@ class BatchNorm:
             self.mean = mean
             self.var = var
             self.x_hat = x_hat
-            self.running_mean = mean
-            self.running_var = var
+            self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * mean
+            self.running_var = self.momentum * self.running_var + (1 - self.momentum) * var
             return self.gamma*x_hat + self.beta
         
         # train=False에서는 running_mean/running_var를 사용하세요.
         else:
-            x = (x-self.running_mean) / np.sqrt(self.running_var+self.eps)
-            return self.gamma*x + self.beta
+            x_hat = (x - self.running_mean) / np.sqrt(self.running_var + self.eps)
+            self.x = x
+            self.mean = self.running_mean
+            self.var = self.running_var
+            self.x_hat = x_hat
+            
+            return self.gamma*x_hat + self.beta
 
 
     def backward(self, dout):
@@ -197,6 +202,5 @@ class Dropout:
     def backward(self, dout):
         """forward에서 꺼졌던 뉴런 위치에는 gradient도 흘리지 않습니다."""
         # forward에서 만든 mask를 dout에 곱하세요.
-        dout[self.mask] = 0
-        return dout
+        return dout * self.mask
 

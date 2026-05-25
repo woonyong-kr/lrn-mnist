@@ -65,6 +65,7 @@ def train(model, optimizer, x_train, y_train, epochs=20, batch_size=128):
             loss = cross_entropy_loss(y_pred, y_batch)
             dout = y_pred.copy()
             dout[np.arange(len(y_batch)), y_batch] -= 1
+            dout /= len(y_batch) #평균
             model.backward(dout)
 
             #매개 변수(가중치) 갱신
