@@ -84,6 +84,14 @@ class BatchNorm:
         self.running_var = np.zeros_like(beta)
         self.eps = 1e-7
 
+        #backward를 위해 저장
+        self.dbeta = None
+        self.dgamma = None
+        self.x = None
+        self.mean = None
+        self.var = None
+        self.x_hat = None
+
     def forward(self, x, train=True):
         """
         Args:
@@ -93,12 +101,25 @@ class BatchNorm:
         Returns:
             정규화 후 gamma, beta가 적용된 배열
         """
-        # TODO: train=True에서는 batch mean/var로 정규화하고 running 통계를 갱신하세요.
+        # train=True에서는 batch mean/var로 정규화하고 running 통계를 갱신
         if(train):
-            pass
+            batch_size = x.shape[0]
+            mean = (1/batch_size) * np.sum(x, axis=0)
+            var = (1/batch_size) * np.sum( (x-mean)**2, axis=0)
+            x_hat = (x-mean) / np.sqrt(var+self.eps)
+            self.x = x
+            self.mean = mean
+            self.var = var
+            self.x_hat = x_hat
+            self.running_mean = mean
+            self.running_var = var
+            return self.gamma*x_hat + self.beta
+        
+        # train=False에서는 running_mean/running_var를 사용하세요.
+        else:
+            x = (x-self.running_mean) / np.sqrt(self.running_var+self.eps)
+            return self.gamma*x + self.beta
 
-        # TODO: train=False에서는 running_mean/running_var를 사용하세요.
-        raise NotImplementedError("BatchNorm.forward를 구현하세요.")
 
     def backward(self, dout):
         """
@@ -110,9 +131,30 @@ class BatchNorm:
         Returns:
             dx: BatchNorm 입력 x에 대한 gradient
         """
-        # TODO: self.dbeta, self.dgamma, dx를 계산하세요.
+        # self.dbeta, self.dgamma, dx를 계산하세요.
         # 힌트: 먼저 dbeta와 dgamma shape가 beta/gamma와 같은지 확인합니다.
-        raise NotImplementedError("BatchNorm.backward를 구현하세요.")
+        self.dbeta = np.sum(dout, axis=0)
+        self.dgamma = np.sum(self.x_hat * dout, axis=0)
+
+        dx_hat = dout * self.gamma
+
+        dvar = np.sum(
+            dx_hat * (self.x -  self.mean) * -0.5 * (self.var + self.eps) ** (-1.5),
+            axis=0,
+        )
+
+        dmean = (
+            np.sum(dx_hat * -1 / np.sqrt(self.var + self.eps), axis=0)
+            + dvar * np.sum(-2 * (self.x - self.mean), axis=0) / dout.shape[0]
+        )
+
+        dx = (
+            dx_hat / np.sqrt(self.var + self.eps)
+            + dvar * 2 * (self.x - self.mean) / dout.shape[0]
+            + dmean / dout.shape[0]
+        )
+
+        return dx
 
 
 class Dropout:
