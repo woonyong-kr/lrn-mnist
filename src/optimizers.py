@@ -76,7 +76,7 @@ class Adam:
             처음에는 m과 v가 0에서 시작한다.
             m, v는 실제 평균보다 작게 잡히는 경향이 있다. 이를 보정해야 한다.
             '''
-            m_hat = self.m[key] / (1 - beta1*self.t)
+            m_hat = self.m[key] / (1 - beta1**self.t)
             v_hat = self.v[key] / (1 - beta2**self.t)
 
             #가중치 업데이트
