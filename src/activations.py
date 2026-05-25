@@ -45,7 +45,7 @@ class ReLU:
         '''
 
         out[self.mask] = 0
-        return out;
+        return out
 
 
     def backward(self, dout):
@@ -92,5 +92,5 @@ class Softmax:
         Softmax와 Cross Entropy를 함께 미분한 gradient를 train()에서 직접 만들기 때문에
         여기서는 받은 gradient를 그대로 통과시킵니다.
         """
-        # TODO: train()에서 만든 gradient를 그대로 반환하세요.
-        raise NotImplementedError("Softmax.backward를 구현하세요.")
+        # train()에서 만든 gradient(=dout)를 그대로 반환
+        return dout
