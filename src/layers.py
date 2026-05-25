@@ -94,6 +94,9 @@ class BatchNorm:
             정규화 후 gamma, beta가 적용된 배열
         """
         # TODO: train=True에서는 batch mean/var로 정규화하고 running 통계를 갱신하세요.
+        if(train):
+            pass
+
         # TODO: train=False에서는 running_mean/running_var를 사용하세요.
         raise NotImplementedError("BatchNorm.forward를 구현하세요.")
 
@@ -123,6 +126,7 @@ class Dropout:
     def __init__(self, drop_ratio=0.5):
         """Args: drop_ratio: 학습 중 0으로 만들 뉴런 비율."""
         self.drop_ratio = drop_ratio
+        self.mask = None
 
     def forward(self, x, train=True):
         """
@@ -130,11 +134,26 @@ class Dropout:
             x: 입력 배열
             train: True면 무작위 mask 적용, False면 평균적인 출력 크기로 scale
         """
-        # TODO: train=True에서는 mask를 만들고 x에 곱하세요.
-        # TODO: train=False에서는 x * (1 - drop_ratio)를 반환하세요.
-        raise NotImplementedError("Dropout.forward를 구현하세요.")
+        # train=True에서는 mask를 만들고 x에 곱하세요.
+        if(train):
+             #한 행(size크기)짜리 bool타입 mask만들고 t/f랜덤으로 넣기
+            self.mask = np.random.rand(*x.shape) > self.drop_ratio
+            
+            ''' 오답 노트
+            x = x[self.mask]
+            이렇게 하면 틀린다.
+            '''
+            x = x * self.mask
+            return x
+        else:
+             # train=False에서는 x * (1 - drop_ratio) 반환
+            return x * (1-self.drop_ratio)
+       
+
 
     def backward(self, dout):
         """forward에서 꺼졌던 뉴런 위치에는 gradient도 흘리지 않습니다."""
-        # TODO: forward에서 만든 mask를 dout에 곱하세요.
-        raise NotImplementedError("Dropout.backward를 구현하세요.")
+        # forward에서 만든 mask를 dout에 곱하세요.
+        dout[self.mask] = 0
+        return dout
+
