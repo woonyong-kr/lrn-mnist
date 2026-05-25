@@ -80,5 +80,5 @@ class Adam:
             v_hat = self.v[key] / (1 - beta2**self.t)
 
             #가중치 업데이트
-            params[key] =  params[key] - self.lr * m_hat / (np.sqrt(v_hat) + eps)
+            params[key] -= self.lr * m_hat / (np.sqrt(v_hat) + eps)
         
