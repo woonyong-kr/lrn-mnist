@@ -70,6 +70,7 @@ class BatchNorm:
     train=True일 때는 현재 배치 통계를 쓰고, 추론 때는 누적 running_mean/running_var를 사용합니다.
     """
 
+    #초기값 gamma=1, beta=0
     def __init__(self, gamma, beta, momentum=0.9):
         """
         Args:
