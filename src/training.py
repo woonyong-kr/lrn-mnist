@@ -6,7 +6,6 @@ import numpy as np
 
 from losses import cross_entropy_loss
 
-
 def train(model, optimizer, x_train, y_train, epochs=20, batch_size=128):
     """
     미니배치 학습 루프.
@@ -15,12 +14,67 @@ def train(model, optimizer, x_train, y_train, epochs=20, batch_size=128):
     교육생은 이 함수에서 "예측값을 만들고, 손실을 계산하고, gradient로 파라미터를 바꾸는"
     전체 흐름을 확인할 수 있습니다.
 
+    args:
+        model:
+            학습할 신경망 객체
+            예: NeuralNetwork()
+
+        optimizer:
+            파라미터를 업데이트하는 객체
+            예: SGD(lr=0.01), Adam(lr=0.001)
+
+        x_train:
+            훈련 이미지 데이터
+            shape: (60000, 784)
+            dtype: 보통 float32
+            각 행 하나가 MNIST 이미지 1장
+
+        y_train:
+            훈련 정답 레이블
+            shape: (60000,)
+            예: [5, 0, 4, 1, ...]
+            각 이미지의 정답 숫자
+
+        epochs:
+            전체 훈련 데이터를 몇 번 반복해서 볼지
+
+        batch_size:
+            한 번에 몇 개 샘플씩 잘라서 학습할지
+
+
     Returns:
         loss_history: epoch별 평균 손실 리스트
     """
-    # TODO: epoch마다 데이터를 섞고, batch 단위로 forward/loss/backward/update를 수행하세요.
+    # epoch마다 데이터를 섞고, batch 단위로 forward/loss/backward/update를 수행하세요.
     # 힌트: Softmax + CrossEntropy 결합 gradient는 y_pred copy에서 정답 위치에 1을 빼서 만듭니다.
-    raise NotImplementedError("train을 구현하세요.")
+
+    loss_history = []
+    train_size = x_train.shape[0]
+
+    for _ in range(epochs):
+        indices = np.random.permutation(train_size)
+
+        for i in range(0, train_size, batch_size):
+
+            batch_indices = indices[i:i+batch_size]
+            x_batch = x_train[batch_indices]
+            y_batch = y_train[batch_indices]
+
+            #기울기 계산
+            y_pred = model.forward(x_batch, True)
+            loss = cross_entropy_loss(y_pred, y_batch)
+            dout = y_pred.copy()
+            dout[np.arange(len(y_batch)), y_batch] -= 1
+            model.backward(dout)
+
+            #매개 변수(가중치) 갱신
+            optimizer.update(model.params, model.grads)
+
+        #학습 경과 기록
+        loss = model.loss(x_batch, y_batch)
+        loss_history.append(loss)
+
+    return loss_history
 
 
 def evaluate(model, x, y):
