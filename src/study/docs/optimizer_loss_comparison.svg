@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:Arial,sans-serif;font-size:14px;fill:#111827}.small{font-size:12px;fill:#4b5563}.title{font-size:22px;font-weight:700}.axis{stroke:#111827;stroke-width:1.5}.grid{stroke:#e5e7eb;stroke-width:1}.line{fill:none;stroke-width:3}.legend{font-size:13px}</style>
+<text x="450" y="28" text-anchor="middle" class="title">Optimizer별 손실 감소 비교: f(W)=0.5W², W₀=5, lr=0.1</text>
+<line x1="70" y1="455" x2="875" y2="455" class="grid"/>
+<text x="58" y="459" text-anchor="end" class="small">0</text>
+<line x1="70" y1="391.9230769230769" x2="875" y2="391.9230769230769" class="grid"/>
+<text x="58" y="395.9230769230769" text-anchor="end" class="small">2</text>
+<line x1="70" y1="328.8461538461538" x2="875" y2="328.8461538461538" class="grid"/>
+<text x="58" y="332.8461538461538" text-anchor="end" class="small">4</text>
+<line x1="70" y1="265.7692307692307" x2="875" y2="265.7692307692307" class="grid"/>
+<text x="58" y="269.7692307692307" text-anchor="end" class="small">6</text>
+<line x1="70" y1="202.6923076923077" x2="875" y2="202.6923076923077" class="grid"/>
+<text x="58" y="206.6923076923077" text-anchor="end" class="small">8</text>
+<line x1="70" y1="139.61538461538464" x2="875" y2="139.61538461538464" class="grid"/>
+<text x="58" y="143.61538461538464" text-anchor="end" class="small">10</text>
+<line x1="70" y1="76.53846153846155" x2="875" y2="76.53846153846155" class="grid"/>
+<text x="58" y="80.53846153846155" text-anchor="end" class="small">12</text>
+<line x1="70" y1="45" x2="70" y2="455" class="grid"/>
+<text x="70" y="477" text-anchor="middle" class="small">1</text>
+<line x1="197.10526315789474" y1="45" x2="197.10526315789474" y2="455" class="grid"/>
+<text x="197.10526315789474" y="477" text-anchor="middle" class="small">4</text>
+<line x1="324.2105263157895" y1="45" x2="324.2105263157895" y2="455" class="grid"/>
+<text x="324.2105263157895" y="477" text-anchor="middle" class="small">7</text>
+<line x1="451.31578947368416" y1="45" x2="451.31578947368416" y2="455" class="grid"/>
+<text x="451.31578947368416" y="477" text-anchor="middle" class="small">10</text>
+<line x1="578.421052631579" y1="45" x2="578.421052631579" y2="455" class="grid"/>
+<text x="578.421052631579" y="477" text-anchor="middle" class="small">13</text>
+<line x1="705.5263157894736" y1="45" x2="705.5263157894736" y2="455" class="grid"/>
+<text x="705.5263157894736" y="477" text-anchor="middle" class="small">16</text>
+<line x1="832.6315789473683" y1="45" x2="832.6315789473683" y2="455" class="grid"/>
+<text x="832.6315789473683" y="477" text-anchor="middle" class="small">19</text>
+<line x1="70" y1="455" x2="875" y2="455" class="axis"/>
+<line x1="70" y1="45" x2="70" y2="455" class="axis"/>
+<text x="450" y="502" text-anchor="middle">step</text>
+<text x="18" y="260" transform="rotate(-90 18 260)" text-anchor="middle">loss</text>
+<polyline points="70.0,202.7 112.4,293.5 154.7,351.7 197.1,388.9 239.5,412.7 281.8,427.9 324.2,437.7 366.6,443.9 408.9,447.9 451.3,450.5 493.7,452.1 536.1,453.1 578.4,453.8 620.8,454.2 663.2,454.5 705.5,454.7 747.9,454.8 790.3,454.9 832.6,454.9 875.0,454.9" stroke="#2563eb" class="line"/>
+<rect x="740" y="47" width="18" height="4" fill="#2563eb"/>
+<text x="765" y="53" class="legend">SGD</text>
+<polyline points="70.0,202.7 112.4,371.6 154.7,453.5 197.1,417.5 239.5,322.2 281.8,256.8 324.2,271.2 366.6,347.2 408.9,425.4 451.3,455.0 493.7,429.5 536.1,382.7 578.4,356.7 620.8,370.4 663.2,409.9 705.5,445.2 747.9,454.5 790.3,438.8 832.6,416.4 875.0,406.9" stroke="#dc2626" class="line"/>
+<rect x="740" y="71" width="18" height="4" fill="#dc2626"/>
+<text x="765" y="77" class="legend">Momentum</text>
+<polyline points="70.0,76.4 112.4,87.1 154.7,95.7 197.1,103.0 239.5,109.5 281.8,115.3 324.2,120.7 366.6,125.6 408.9,130.2 451.3,134.6 493.7,138.6 536.1,142.5 578.4,146.2 620.8,149.8 663.2,153.1 705.5,156.4 747.9,159.5 790.3,162.6 832.6,165.5 875.0,168.3" stroke="#16a34a" class="line"/>
+<rect x="740" y="95" width="18" height="4" fill="#16a34a"/>
+<text x="765" y="101" class="legend">AdaGrad</text>
+<polyline points="70.0,76.4 112.4,91.7 154.7,106.6 197.1,121.2 239.5,135.5 281.8,149.5 324.2,163.1 366.6,176.3 408.9,189.2 451.3,201.7 493.7,213.9 536.1,225.7 578.4,237.2 620.8,248.3 663.2,259.0 705.5,269.4 747.9,279.4 790.3,289.1 832.6,298.4 875.0,307.3" stroke="#7c3aed" class="line"/>
+<rect x="740" y="119" width="18" height="4" fill="#7c3aed"/>
+<text x="765" y="125" class="legend">Adam</text>
+<text x="70" y="485" class="small">해석: Momentum은 빠르지만 overshoot로 흔들릴 수 있고, AdaGrad는 보폭이 줄어 천천히 감소한다. Adam은 방향 평균과 크기 보정을 함께 쓴다.</text>
+</svg>
