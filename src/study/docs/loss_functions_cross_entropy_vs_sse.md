@@ -260,7 +260,239 @@ $$
 \end{aligned}
 $$
 
-## 7. 정리
+## 7. Softmax와 교차 엔트로피를 같이 쓰면 왜 미분식이 단순해지는가
+
+Softmax는 logit \(z\)를 확률 \(y\)로 바꾼다.
+
+$$
+y_i = \frac{e^{z_i}}{\sum_j e^{z_j}}
+$$
+
+교차 엔트로피 오차는 다음과 같다.
+
+$$
+L = -\sum_i t_i \log y_i
+$$
+
+one-hot 정답에서는 정답 클래스 하나만 손실에 남는다. 예를 들어 정답 클래스가 2라면:
+
+$$
+t = [0,\ 0,\ 1]
+$$
+
+$$
+L = -\log y_2
+$$
+
+여기서 중요한 점은 실제 역전파에서 필요한 값이 \(\frac{\partial L}{\partial y_i}\)가 아니라, Softmax에 들어가기 전 값인 logit \(z\)에 대한 미분이라는 것이다.
+
+$$
+\frac{\partial L}{\partial z_j}
+$$
+
+먼저 교차 엔트로피를 \(y_i\)에 대해 미분하면:
+
+$$
+\frac{\partial L}{\partial y_i}
+=
+-\frac{t_i}{y_i}
+$$
+
+여기서 \(\frac{1}{y_i}\)가 나온다.
+
+Softmax의 미분은 다음 형태를 가진다.
+
+$$
+\frac{\partial y_i}{\partial z_j}
+=
+y_i(\delta_{ij} - y_j)
+$$
+
+여기서 \(\delta_{ij}\)는 다음을 뜻한다.
+
+$$
+\delta_{ij}
+=
+\begin{cases}
+1 & \text{if } i = j \\
+0 & \text{if } i \ne j
+\end{cases}
+$$
+
+체인룰을 적용하면:
+
+$$
+\frac{\partial L}{\partial z_j}
+=
+\sum_i
+\frac{\partial L}{\partial y_i}
+\frac{\partial y_i}{\partial z_j}
+$$
+
+각 항을 대입한다.
+
+$$
+\begin{aligned}
+\frac{\partial L}{\partial z_j}
+&=
+\sum_i
+\left(-\frac{t_i}{y_i}\right)
+y_i(\delta_{ij} - y_j) \\
+&=
+\sum_i
+-t_i(\delta_{ij} - y_j)
+\end{aligned}
+$$
+
+교차 엔트로피 미분에서 나온 \(\frac{1}{y_i}\)와 Softmax 미분에 들어 있던 \(y_i\)가 약분된다. 이것이 식이 깔끔해지는 핵심이다.
+
+이제 합을 정리하면:
+
+$$
+\begin{aligned}
+\frac{\partial L}{\partial z_j}
+&=
+\sum_i -t_i\delta_{ij}
++ \sum_i t_i y_j \\
+&=
+-t_j + y_j\sum_i t_i
+\end{aligned}
+$$
+
+one-hot 정답에서는 정답 위치만 1이고 나머지는 0이므로:
+
+$$
+\sum_i t_i = 1
+$$
+
+따라서:
+
+$$
+\frac{\partial L}{\partial z_j}
+=
+y_j - t_j
+$$
+
+즉 벡터 전체로 쓰면:
+
+$$
+\frac{\partial L}{\partial z}
+=
+y - t
+$$
+
+이 결과는 역전파 구현에서 매우 중요하다. Softmax 출력 \(y\)와 정답 \(t\)의 차이만 계산하면 출력층 gradient가 바로 나온다.
+
+```python
+dout = y_pred.copy()
+dout[np.arange(batch_size), y_true] -= 1
+dout /= batch_size
+```
+
+위 코드는 정답이 정수 라벨일 때 \(y - t\)를 만드는 방식이다.
+
+## 8. Softmax와 오차제곱합을 쓰면 왜 덜 단순한가
+
+오차제곱합은 다음과 같다.
+
+$$
+L = \frac{1}{2}\sum_i (y_i - t_i)^2
+$$
+
+먼저 \(y_i\)에 대해 미분하면:
+
+$$
+\frac{\partial L}{\partial y_i}
+=
+y_i - t_i
+$$
+
+여기까지만 보면 깔끔하다.
+
+하지만 \(y\)는 Softmax 출력이므로, 실제로 필요한 것은 logit \(z\)에 대한 미분이다.
+
+$$
+\frac{\partial L}{\partial z_j}
+=
+\sum_i
+\frac{\partial L}{\partial y_i}
+\frac{\partial y_i}{\partial z_j}
+$$
+
+대입하면:
+
+$$
+\frac{\partial L}{\partial z_j}
+=
+\sum_i
+(y_i - t_i)
+y_i(\delta_{ij} - y_j)
+$$
+
+여기서는 교차 엔트로피 때처럼 약분되는 \(\frac{1}{y_i}\) 항이 없다. 따라서 Softmax 미분의 복잡한 구조가 그대로 남는다.
+
+정리하면:
+
+$$
+\begin{aligned}
+Softmax + \text{교차 엔트로피}
+&\Rightarrow y - t \\
+Softmax + \text{오차제곱합}
+&\Rightarrow \sum_i (y_i - t_i)y_i(\delta_{ij} - y_j)
+\end{aligned}
+$$
+
+즉 Softmax와 오차제곱합을 같이 쓰는 것이 불가능한 것은 아니지만, 역전파 식이 \(y - t\)처럼 단순하게 떨어지지 않는다.
+
+## 9. 이 조합은 우연인가
+
+Softmax와 교차 엔트로피 조합은 단순히 \(y - t\)가 나오도록 억지로 만든 조합이라기보다, 확률 모델 관점에서 자연스럽게 나온 조합이다.
+
+분류 문제에서 모델은 다음을 출력한다.
+
+$$
+y = [P(class=0),\ P(class=1),\ \cdots,\ P(class=9)]
+$$
+
+즉 모델은 “이 입력이 각 클래스일 확률”을 말한다.
+
+정답 클래스가 \(c\)라면 목표는 정답 클래스 확률을 크게 만드는 것이다.
+
+$$
+y_c \text{를 크게 만들기}
+$$
+
+확률을 최대화하는 문제는 보통 음의 로그우도를 최소화하는 문제로 바꾼다.
+
+$$
+L = -\log y_c
+$$
+
+이 식이 바로 one-hot 정답에서의 교차 엔트로피이다.
+
+따라서:
+
+$$
+\begin{aligned}
+Softmax
+&\Rightarrow \text{logit을 확률 분포로 바꾼다} \\
+\text{교차 엔트로피}
+&\Rightarrow \text{정답 확률의 음의 로그를 최소화한다}
+\end{aligned}
+$$
+
+이 둘은 확률론적으로 자연스럽게 연결된다. 그런데 미분해보면 \(\frac{1}{y_i}\)와 \(y_i\)가 약분되어 \(y - t\)로 깔끔하게 떨어진다.
+
+그래서 이 조합은 다음 두 가지 장점을 동시에 가진다.
+
+$$
+\begin{aligned}
+\text{분류 문제에 대한 의미} &\Rightarrow \text{자연스럽다} \\
+\text{역전파 계산} &\Rightarrow \text{단순하다}
+\end{aligned}
+$$
+
+## 10. 정리
 
 분류 문제:
 
