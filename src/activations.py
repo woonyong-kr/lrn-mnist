@@ -16,6 +16,11 @@ class ReLU:
 
     은닉층에서 음수 값은 0으로 막고, 양수 값은 그대로 통과시킵니다.
     forward에서 만든 mask는 backward 때 "어느 위치로 gradient를 흘릴지" 결정하는 데 사용됩니다.
+
+    ---------------
+    인스턴스 변수 mask
+    bool 넘파이 배열, 순전파 입력 x값이 0이하인 인덱스는 T, 그 외 F로 유지함
+    역전파시 mask[index] = true이면, 그부분은 0으로 흘려보내기
     """
 
     def forward(self, x):
@@ -27,19 +32,38 @@ class ReLU:
             x와 같은 shape. x > 0인 위치만 원래 값을 유지합니다.
         """
         # self.mask에 저장하고, 음수/0 위치는 0으로 바꾸세요.
-        self.mask = (x>0)
-        return x * self.mask
+
+        # x = [-1, 0, 2, -3]
+        self.mask = (x <= 0)
+        #self.mask = [T, T, F, T]
+        out = x.copy()
+        # out = [-1, 0, 2, -3]
+
+        ''' Boolean indexing 문법
+        self.mask가 True인 위치만 선택해서 값을 바꾼다.
+        out = [0, 0, 2, 0]
+        '''
+
+        out[self.mask] = 0
+        return out;
+
 
     def backward(self, dout):
         """
         Args:
-            dout: 다음 층에서 넘어온 gradient
+            dout: 다음 층에서 넘어온 gradient !!배열?
 
         Returns:
-            ReLU 입력 x에 대한 gradient. forward 때 x <= 0이었던 위치는 0입니다.
+            ReLU 입력 x에 대한 gradient. 
+            forward 때 x <= 0이었던 위치는 0입니다.
         """
-        # TODO: forward에서 저장한 self.mask를 이용해 gradient가 흐를 위치만 남기세요.
-        raise NotImplementedError("ReLU.backward를 구현하세요.")
+        # forward에서 저장한 self.mask를 이용해 gradient가 흐를 위치만 남기세요.
+        
+        #dout은 배열 같음
+        dout[self.mask] = 0
+        dx = dout
+
+        return dx
 
 
 class Softmax:
