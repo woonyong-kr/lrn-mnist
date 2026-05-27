@@ -15,6 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+plt.rcParams["font.family"] = "AppleGothic"
+plt.rcParams["axes.unicode_minus"] = False
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(SRC_DIR))
@@ -95,11 +98,15 @@ def train_case(config, x_train, y_train, x_test, y_test, seed):
 
     training_seconds = time.perf_counter() - start
     final = snapshots[-1]
+    updates_per_epoch = int(np.ceil(train_size / config["batch_size"]))
     result = {
         **config,
         "seed": seed,
         "train_size": int(train_size),
         "test_size": int(x_test.shape[0]),
+        "total_params": int(sum(param.size for param in model.params.values())),
+        "updates_per_epoch": updates_per_epoch,
+        "total_updates": updates_per_epoch * config["epochs"],
         "training_seconds": float(training_seconds),
         "final_train_accuracy_percent": final["train_accuracy_percent"],
         "final_test_accuracy_percent": final["test_accuracy_percent"],
@@ -129,7 +136,16 @@ def save_existing_correlation_plots(output_dir):
     payload = json.loads(hparam_path.read_text(encoding="utf-8"))
     results = payload["results"]
 
-    names = [item["name"] for item in results]
+    display_names = {
+        "baseline": "baseline",
+        "dropout_0_4": "Dropout 0.4",
+        "epochs_30": "epochs 30",
+        "batch_64": "batch 64",
+        "wide_1024_512": "wide model",
+        "deep_512_512_256": "deep model",
+        "tuned_dropout_0_4_epochs_30": "Dropout 0.4 + 30ep",
+    }
+    names = [display_names.get(item["name"], item["name"]) for item in results]
     test_acc = np.array([item["test_accuracy_percent"] for item in results])
     updates = np.array([item["total_updates"] for item in results])
     loss_end = np.array([item["loss_end"] for item in results])
@@ -168,15 +184,6 @@ def save_existing_correlation_plots(output_dir):
         results,
         key=lambda item: item["test_accuracy_percent"] - baseline["test_accuracy_percent"],
     )
-    display_names = {
-        "baseline": "baseline",
-        "dropout_0_4": "dropout 0.4",
-        "epochs_30": "epochs 30",
-        "batch_64": "batch 64",
-        "wide_1024_512": "wide model",
-        "deep_512_512_256": "deep model",
-        "tuned_dropout_0_4_epochs_30": "dropout 0.4 + 30ep",
-    }
     labels = [display_names.get(item["name"], item["name"]) for item in sorted_results]
     accuracy_gain = np.array(
         [
@@ -203,8 +210,8 @@ def save_existing_correlation_plots(output_dir):
     ax_gain.axvline(0, color="#555555", linewidth=1)
     ax_gain.set_yticks(y_positions)
     ax_gain.set_yticklabels(labels)
-    ax_gain.set_xlabel("Test accuracy gain vs baseline (%p)")
-    ax_gain.set_title("Accuracy gain is tiny")
+    ax_gain.set_xlabel("Test Accuracy Gain vs Baseline (%p)")
+    ax_gain.set_title("Accuracy Gain Is Small")
     ax_gain.grid(axis="x", alpha=0.25)
     for y_value, gain in zip(y_positions, accuracy_gain):
         ax_gain.text(
@@ -221,22 +228,22 @@ def save_existing_correlation_plots(output_dir):
     ax_cost.axvline(1.0, color="#555555", linewidth=1)
     ax_cost.set_yticks(y_positions)
     ax_cost.set_yticklabels([])
-    ax_cost.set_xlabel("Multiplier vs baseline")
-    ax_cost.set_title("Cost often grows more clearly")
+    ax_cost.set_xlabel("Multiplier vs Baseline")
+    ax_cost.set_title("Cost Difference Is Clearer")
     ax_cost.grid(axis="x", alpha=0.25)
     ax_cost.legend()
     for y_value, time_value, param_value in zip(y_positions, time_ratio, param_ratio):
         ax_cost.text(time_value + 0.04, y_value - height / 2, f"{time_value:.2f}x", va="center", fontsize=8)
         ax_cost.text(param_value + 0.04, y_value + height / 2, f"{param_value:.2f}x", va="center", fontsize=8)
 
-    fig.suptitle("Full-data sweep takeaway: small accuracy gains, visible cost tradeoffs")
+    fig.suptitle("Full-Data Sweep: Small Accuracy Gains, Clear Cost Tradeoffs")
     fig.tight_layout()
     fig.savefig(output_dir / "full_data_effect_summary.png", dpi=160)
     plt.close(fig)
 
     plt.figure(figsize=(9, 5))
     plt.bar(names, increase_counts)
-    plt.ylabel("Number of Epoch-to-Epoch Loss Increases")
+    plt.ylabel("Epoch-to-Epoch Loss Increase Count")
     plt.title("Is Loss Uniformly Decreasing?")
     plt.xticks(rotation=30, ha="right")
     plt.grid(axis="y", alpha=0.25)
@@ -280,6 +287,9 @@ def save_diagnostic_csv(results, path):
         "final_gap_percent_point",
         "final_train_loss",
         "final_test_loss",
+        "total_params",
+        "updates_per_epoch",
+        "total_updates",
         "training_seconds",
     ]
     with path.open("w", newline="", encoding="utf-8") as f:
@@ -293,14 +303,19 @@ def save_diagnostic_csv(results, path):
 
 def plot_overfit(results, output_dir):
     overfit_results = [item for item in results if item["group"] == "overfit"]
+    display_names = {
+        "tiny_wide_no_reg": "no regularization",
+        "tiny_wide_regularized": "BatchNorm+Dropout",
+    }
 
     plt.figure(figsize=(11, 6))
     for result in overfit_results:
         epochs = [snapshot["epoch"] for snapshot in result["snapshots"]]
         train_acc = [snapshot["train_accuracy_percent"] for snapshot in result["snapshots"]]
         test_acc = [snapshot["test_accuracy_percent"] for snapshot in result["snapshots"]]
-        plt.plot(epochs, train_acc, label=f"{result['name']} train")
-        plt.plot(epochs, test_acc, "--", label=f"{result['name']} test")
+        label = display_names.get(result["name"], result["name"])
+        plt.plot(epochs, train_acc, label=f"{label} train")
+        plt.plot(epochs, test_acc, "--", label=f"{label} test")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy (%)")
     plt.title("Intentional Overfitting: Train vs Test Accuracy")
@@ -317,10 +332,10 @@ def plot_overfit(results, output_dir):
             snapshot["train_accuracy_percent"] - snapshot["test_accuracy_percent"]
             for snapshot in result["snapshots"]
         ]
-        plt.plot(epochs, gaps, label=result["name"])
+        plt.plot(epochs, gaps, label=display_names.get(result["name"], result["name"]))
     plt.xlabel("Epoch")
     plt.ylabel("Train-Test Accuracy Gap (%p)")
-    plt.title("Generalization Gap Grows with Overfitting")
+    plt.title("Generalization Gap under Overfitting")
     plt.grid(True, alpha=0.25)
     plt.legend(fontsize=8)
     plt.tight_layout()
@@ -332,8 +347,9 @@ def plot_overfit(results, output_dir):
         epochs = [snapshot["epoch"] for snapshot in result["snapshots"]]
         train_loss = [snapshot["train_loss"] for snapshot in result["snapshots"]]
         test_loss = [snapshot["test_loss"] for snapshot in result["snapshots"]]
-        plt.plot(epochs, train_loss, label=f"{result['name']} train")
-        plt.plot(epochs, test_loss, "--", label=f"{result['name']} test")
+        label = display_names.get(result["name"], result["name"])
+        plt.plot(epochs, train_loss, label=f"{label} train")
+        plt.plot(epochs, test_loss, "--", label=f"{label} test")
     plt.xlabel("Epoch")
     plt.ylabel("Cross Entropy Loss")
     plt.title("Intentional Overfitting: Train vs Test Loss")
@@ -346,12 +362,17 @@ def plot_overfit(results, output_dir):
 
 def plot_lr_stability(results, output_dir):
     lr_results = [item for item in results if item["group"] == "lr_stability"]
+    display_names = {
+        "adam_lr_0_001": "Adam lr 0.001",
+        "sgd_lr_0_1": "SGD lr 0.1",
+        "sgd_lr_1_0": "SGD lr 1.0",
+    }
 
     plt.figure(figsize=(11, 6))
     for result in lr_results:
         epochs = [snapshot["epoch"] for snapshot in result["snapshots"]]
         test_loss = [snapshot["test_loss"] for snapshot in result["snapshots"]]
-        plt.plot(epochs, test_loss, label=result["name"])
+        plt.plot(epochs, test_loss, label=display_names.get(result["name"], result["name"]))
     plt.xlabel("Epoch")
     plt.ylabel("Test Cross Entropy Loss")
     plt.title("Learning Rate and Optimizer Stability")
@@ -359,6 +380,56 @@ def plot_lr_stability(results, output_dir):
     plt.legend(fontsize=8)
     plt.tight_layout()
     plt.savefig(output_dir / "learning_rate_stability.png", dpi=160)
+    plt.close()
+
+
+def plot_stress_results(results, output_dir):
+    stress_results = [item for item in results if item["group"] == "stress"]
+    if not stress_results:
+        return
+
+    display_names = {
+        "stress_baseline": "baseline",
+        "stress_batch_16": "batch 16",
+        "stress_batch_512": "batch 512",
+        "stress_epochs_200": "epochs 200",
+        "stress_dropout_0": "Dropout 0",
+        "stress_width_10x": "width 10x",
+        "stress_depth_10_layers": "depth 10 layers",
+        "stress_sgd_lr_0_1": "SGD 0.1",
+        "stress_sgd_lr_1_0": "SGD 1.0",
+    }
+    labels = [display_names.get(item["name"], item["name"]) for item in stress_results]
+    y_positions = np.arange(len(stress_results))
+    train_acc = np.array([item["final_train_accuracy_percent"] for item in stress_results])
+    test_acc = np.array([item["final_test_accuracy_percent"] for item in stress_results])
+    fig, ax_acc = plt.subplots(figsize=(11, 6))
+    height = 0.36
+    ax_acc.barh(y_positions - height / 2, train_acc, height, label="train", color="#1f77b4")
+    ax_acc.barh(y_positions + height / 2, test_acc, height, label="test", color="#ff7f0e")
+    ax_acc.set_yticks(y_positions)
+    ax_acc.set_yticklabels(labels)
+    ax_acc.set_xlabel("Accuracy (%)")
+    ax_acc.set_title("Stress Settings: Train vs Test Accuracy")
+    ax_acc.set_xlim(0, 105)
+    ax_acc.grid(axis="x", alpha=0.25)
+    ax_acc.legend(loc="lower center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    fig.tight_layout()
+    fig.savefig(output_dir / "stress_accuracy_gap.png", dpi=160)
+    plt.close(fig)
+
+    plt.figure(figsize=(12, 6))
+    for result, label in zip(stress_results, labels):
+        epochs = [snapshot["epoch"] for snapshot in result["snapshots"]]
+        test_loss = [snapshot["test_loss"] for snapshot in result["snapshots"]]
+        plt.plot(epochs, test_loss, label=label)
+    plt.xlabel("Epoch")
+    plt.ylabel("Test Cross Entropy Loss")
+    plt.title("Stress Settings: Test Loss Curves")
+    plt.grid(True, alpha=0.25)
+    plt.legend(fontsize=8)
+    plt.tight_layout()
+    plt.savefig(output_dir / "stress_test_loss_curves.png", dpi=160)
     plt.close()
 
 
@@ -372,6 +443,132 @@ def main():
     y_test = y_test_all[:5000]
 
     configs = [
+        {
+            "name": "stress_baseline",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 20,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 2,
+        },
+        {
+            "name": "stress_batch_16",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 20,
+            "batch_size": 16,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 2,
+        },
+        {
+            "name": "stress_batch_512",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 20,
+            "batch_size": 512,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 2,
+        },
+        {
+            "name": "stress_epochs_200",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 200,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 10,
+        },
+        {
+            "name": "stress_dropout_0",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 60,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": False,
+            "dropout_ratio": 0.0,
+            "eval_interval": 5,
+        },
+        {
+            "name": "stress_width_10x",
+            "group": "stress",
+            "hidden_sizes": [5120],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 30,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 3,
+        },
+        {
+            "name": "stress_depth_10_layers",
+            "group": "stress",
+            "hidden_sizes": [256, 256, 256, 256, 256, 256, 256, 256, 256, 256],
+            "optimizer": "Adam",
+            "learning_rate": 0.001,
+            "epochs": 30,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 3,
+        },
+        {
+            "name": "stress_sgd_lr_0_1",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "SGD",
+            "learning_rate": 0.1,
+            "epochs": 20,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 2,
+        },
+        {
+            "name": "stress_sgd_lr_1_0",
+            "group": "stress",
+            "hidden_sizes": [512, 256],
+            "optimizer": "SGD",
+            "learning_rate": 1.0,
+            "epochs": 20,
+            "batch_size": 128,
+            "train_limit": 1000,
+            "use_batchnorm": True,
+            "use_dropout": True,
+            "dropout_ratio": 0.5,
+            "eval_interval": 2,
+        },
         {
             "name": "tiny_wide_no_reg",
             "group": "overfit",
@@ -459,6 +656,7 @@ def main():
 
     correlation_rows = save_existing_correlation_plots(output_dir)
     save_diagnostic_csv(results, output_dir / "diagnostic_results.csv")
+    plot_stress_results(results, output_dir)
     plot_overfit(results, output_dir)
     plot_lr_stability(results, output_dir)
 

@@ -15,6 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+plt.rcParams["font.family"] = "AppleGothic"
+plt.rcParams["axes.unicode_minus"] = False
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(SRC_DIR))
@@ -67,6 +70,18 @@ CORE_CASES = [
         "purpose": "은닉층 너비 증가",
     },
 ]
+
+DISPLAY_NAMES = {
+    "baseline": "baseline",
+    "dropout_0_4": "Dropout 0.4",
+    "epochs_30": "epochs 30",
+    "batch_64": "batch 64",
+    "wide_1024_512": "wide model",
+}
+
+
+def display_name(name):
+    return DISPLAY_NAMES.get(name, name)
 
 
 def train_with_history(model, optimizer, x_train, y_train, epochs, batch_size):
@@ -224,8 +239,8 @@ def save_plots(results, output_dir):
     plt.bar(x - width / 2, adam_acc, width, label="Adam")
     plt.bar(x + width / 2, sgd_acc, width, label="SGD")
     plt.ylabel("Test Accuracy (%)")
-    plt.title("Adam vs SGD - Test Accuracy")
-    plt.xticks(x, cases, rotation=25, ha="right")
+    plt.title("Adam vs SGD Test Accuracy")
+    plt.xticks(x, [display_name(case) for case in cases], rotation=25, ha="right")
     plt.ylim(min(min(adam_acc), min(sgd_acc)) - 0.4, max(max(adam_acc), max(sgd_acc)) + 0.2)
     plt.grid(axis="y", alpha=0.25)
     plt.legend()
@@ -237,11 +252,11 @@ def save_plots(results, output_dir):
     for result in results:
         if result["case"] in {"baseline", "batch_64", "wide_1024_512"}:
             xs = range(1, result["epochs"] + 1)
-            label = f"{result['optimizer']} {result['case']}"
+            label = f"{result['optimizer']} {display_name(result['case'])}"
             plt.plot(xs, result["loss_history"], label=label)
     plt.xlabel("Epoch")
     plt.ylabel("Average Cross Entropy Loss")
-    plt.title("Adam vs SGD - Representative Loss Curves")
+    plt.title("Adam vs SGD Loss Curves")
     plt.grid(True, alpha=0.25)
     plt.legend(fontsize=8)
     plt.tight_layout()

@@ -15,6 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+plt.rcParams["font.family"] = "AppleGothic"
+plt.rcParams["axes.unicode_minus"] = False
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(SRC_DIR))
@@ -90,6 +93,20 @@ EXPERIMENTS = [
         "purpose": "Dropout 감소와 반복 증가 조합",
     },
 ]
+
+DISPLAY_NAMES = {
+    "baseline": "baseline",
+    "dropout_0_4": "Dropout 0.4",
+    "epochs_30": "epochs 30",
+    "batch_64": "batch 64",
+    "wide_1024_512": "wide model",
+    "deep_512_512_256": "deep model",
+    "tuned_dropout_0_4_epochs_30": "Dropout 0.4 + 30ep",
+}
+
+
+def display_name(name):
+    return DISPLAY_NAMES.get(name, name)
 
 
 def train_with_history(model, optimizer, x_train, y_train, epochs, batch_size):
@@ -216,13 +233,13 @@ def save_plots(results, output_dir):
         key=lambda item: item["test_accuracy_percent"],
         reverse=True,
     )
-    names = [item["name"] for item in sorted_results]
+    names = [display_name(item["name"]) for item in sorted_results]
     accuracies = [item["test_accuracy_percent"] for item in sorted_results]
 
     plt.figure(figsize=(11, 5))
     bars = plt.bar(names, accuracies)
     plt.ylabel("Test Accuracy (%)")
-    plt.title("MNIST Hyperparameter Sweep - Test Accuracy")
+    plt.title("MNIST Hyperparameter Test Accuracy")
     plt.ylim(min(accuracies) - 0.4, max(accuracies) + 0.2)
     plt.xticks(rotation=30, ha="right")
     plt.grid(axis="y", alpha=0.25)
@@ -242,10 +259,10 @@ def save_plots(results, output_dir):
     plt.figure(figsize=(11, 6))
     for result in results:
         xs = range(1, result["epochs"] + 1)
-        plt.plot(xs, result["loss_history"], label=result["name"])
+        plt.plot(xs, result["loss_history"], label=display_name(result["name"]))
     plt.xlabel("Epoch")
     plt.ylabel("Average Cross Entropy Loss")
-    plt.title("MNIST Hyperparameter Sweep - Loss Curves")
+    plt.title("Hyperparameter Loss Curves")
     plt.grid(True, alpha=0.25)
     plt.legend(fontsize=8)
     plt.tight_layout()
@@ -257,11 +274,23 @@ def save_plots(results, output_dir):
     times = [item["training_seconds"] for item in results]
     tests = [item["test_accuracy_percent"] for item in results]
     plt.scatter(params, tests, s=[max(40, time_value) for time_value in times])
+    label_offsets = {
+        "baseline": (10, -10),
+        "epochs_30": (8, 6),
+        "wide_1024_512": (-42, 2),
+    }
     for item, x_value, y_value in zip(results, params, tests):
-        plt.annotate(item["name"], (x_value, y_value), fontsize=8)
+        plt.annotate(
+            display_name(item["name"]),
+            (x_value, y_value),
+            xytext=label_offsets.get(item["name"], (5, 2)),
+            textcoords="offset points",
+            fontsize=8,
+        )
     plt.xlabel("Parameters (millions)")
     plt.ylabel("Test Accuracy (%)")
     plt.title("Model Size vs Test Accuracy")
+    plt.ylim(min(tests) - 0.03, max(tests) + 0.02)
     plt.grid(True, alpha=0.25)
     plt.tight_layout()
     plt.savefig(output_dir / "hparam_params_vs_accuracy.png", dpi=160)
