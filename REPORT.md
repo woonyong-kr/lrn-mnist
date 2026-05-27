@@ -129,9 +129,39 @@ PyTorch, TensorFlow 같은 딥러닝 프레임워크 없이 NumPy만으로 MNIST
 
 ![Model Size vs Accuracy](report_assets/hparam_sweep/hparam_params_vs_accuracy.png)
 
+### Optimizer 비교: Adam vs SGD
+
+앞선 실험에서 조건별 정확도 차이가 크지 않았던 이유 중 하나가 Adam optimizer인지 확인하기 위해, 같은 핵심 조건을 SGD(`lr=0.1`)로도 반복했다. Adam은 `lr=0.001`, SGD는 `lr=0.1`을 사용했다. 두 optimizer는 학습률 스케일이 다르므로 같은 lr 값을 쓰는 것이 아니라, 각 optimizer에서 일반적으로 쓰기 쉬운 값을 사용했다.
+
+| 조건 | Adam Test | SGD Test | 차이(Adam-SGD) | Adam Loss | SGD Loss |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `baseline` | 98.40% | 98.00% | +0.40%p | 0.0442 | 0.1027 |
+| `dropout_0_4` | 98.48% | 98.29% | +0.19%p | 0.0276 | 0.0715 |
+| `epochs_30` | 98.40% | 98.22% | +0.18%p | 0.0307 | 0.0734 |
+| `batch_64` | 98.54% | 98.35% | +0.19%p | 0.0519 | 0.0827 |
+| `wide_1024_512` | 98.54% | 98.03% | +0.51%p | 0.0267 | 0.0760 |
+
+Adam 5개 실험의 Test 정확도 범위는 98.40~98.54%로 0.14%p였고, SGD는 98.00~98.35%로 0.35%p였다. 평균 Test 정확도도 Adam은 98.47%, SGD는 98.18%로 Adam이 약 0.29%p 높았다.
+
+![Optimizer Accuracy](report_assets/optimizer_sweep/optimizer_accuracy.png)
+
+대표 손실 곡선에서도 Adam이 더 빠르게 낮은 loss에 도달했다. SGD도 충분히 학습되지만, 같은 epoch 수에서는 Adam보다 loss가 높게 남았다.
+
+![Optimizer Loss Curves](report_assets/optimizer_sweep/optimizer_loss_curves.png)
+
 ---
 
 ## 6. 회고
+
+### 왜 하이퍼파라미터별 정확도 차이가 작았나
+
+이번 Adam 실험에서 조건별 Test 정확도 차이가 크지 않았던 이유는 세 가지로 볼 수 있다.
+
+- MNIST는 비교적 단순한 데이터셋이고, 현재 MLP 구조가 이미 98%대 정확도까지 도달해 성능 상한에 가까워졌다.
+- 테스트 데이터가 10,000개이므로 0.10%p 차이는 약 10개 이미지 차이다. 따라서 98.40%와 98.54%의 차이는 실제로는 약 14개 샘플 차이에 해당한다.
+- Adam, BatchNorm, Dropout 조합이 학습을 안정화해 batch size, Dropout, epoch 변화에 대한 민감도를 줄였다.
+
+Optimizer 비교를 추가로 수행하자 이 해석이 더 분명해졌다. Adam은 조건을 바꿔도 정확도가 좁은 범위에 모였지만, SGD는 전체 정확도가 낮고 조건별 변동폭도 더 컸다. 즉 앞선 결과의 작은 차이는 실험이 잘못된 것이 아니라, Adam 기반 모델이 이미 안정적으로 수렴했고 MNIST에서 정확도 개선 여지가 작았기 때문으로 해석할 수 있다.
 
 ### 하이퍼파라미터별 상관관계
 
