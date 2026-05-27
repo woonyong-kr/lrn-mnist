@@ -22,19 +22,34 @@ class NeuralNetwork:
     가중치 초기화: He 또는 Xavier 중 선택.
     """
 
-    def __init__(self, use_batchnorm=True, use_dropout=True, dropout_ratio=0.5):
+    def __init__(
+        self,
+        hidden_sizes=None,
+        use_batchnorm=True,
+        use_dropout=True,
+        dropout_ratio=0.5,
+        batchnorm_momentum=0.9,
+    ):
         """
         Args:
+            hidden_sizes: 은닉층 뉴런 수 목록. 기본값은 [512, 256]
             use_batchnorm: 은닉층마다 BatchNorm을 넣을지 여부
             use_dropout: 은닉층마다 Dropout을 넣을지 여부
             dropout_ratio: Dropout에서 끌 뉴런 비율
+            batchnorm_momentum: BatchNorm running 통계 이동평균 비율
         """
         self.use_batchnorm = use_batchnorm
         self.use_dropout = use_dropout
+        self.dropout_ratio = dropout_ratio
+        self.batchnorm_momentum = batchnorm_momentum
         self.params = {}
         self.grads = {}
 
-        layer_sizes = [784, 512, 256, 10]
+        if hidden_sizes is None:
+            hidden_sizes = [512, 256]
+
+        self.hidden_sizes = list(hidden_sizes)
+        layer_sizes = [784] + self.hidden_sizes + [10]
         for idx in range(1, len(layer_sizes)):
             fan_in = layer_sizes[idx - 1]
             fan_out = layer_sizes[idx]
@@ -56,7 +71,9 @@ class NeuralNetwork:
             if idx < len(layer_sizes) - 1:
                 if use_batchnorm:
                     self.layers[f"BatchNorm{idx}"] = BatchNorm(
-                        self.params[f"gamma{idx}"], self.params[f"beta{idx}"]
+                        self.params[f"gamma{idx}"],
+                        self.params[f"beta{idx}"],
+                        momentum=batchnorm_momentum,
                     )
                 self.layers[f"ReLU{idx}"] = ReLU()
                 if use_dropout:
