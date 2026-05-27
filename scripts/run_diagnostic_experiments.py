@@ -163,6 +163,77 @@ def save_existing_correlation_plots(output_dir):
     fig.savefig(output_dir / "correlation_summary.png", dpi=160)
     plt.close(fig)
 
+    baseline = next(item for item in results if item["name"] == "baseline")
+    sorted_results = sorted(
+        results,
+        key=lambda item: item["test_accuracy_percent"] - baseline["test_accuracy_percent"],
+    )
+    display_names = {
+        "baseline": "baseline",
+        "dropout_0_4": "dropout 0.4",
+        "epochs_30": "epochs 30",
+        "batch_64": "batch 64",
+        "wide_1024_512": "wide model",
+        "deep_512_512_256": "deep model",
+        "tuned_dropout_0_4_epochs_30": "dropout 0.4 + 30ep",
+    }
+    labels = [display_names.get(item["name"], item["name"]) for item in sorted_results]
+    accuracy_gain = np.array(
+        [
+            item["test_accuracy_percent"] - baseline["test_accuracy_percent"]
+            for item in sorted_results
+        ]
+    )
+    time_ratio = np.array(
+        [item["training_seconds"] / baseline["training_seconds"] for item in sorted_results]
+    )
+    param_ratio = np.array(
+        [item["total_params"] / baseline["total_params"] for item in sorted_results]
+    )
+    y_positions = np.arange(len(sorted_results))
+
+    fig, (ax_gain, ax_cost) = plt.subplots(
+        1,
+        2,
+        figsize=(13, 6),
+        gridspec_kw={"width_ratios": [1.05, 1.35]},
+    )
+    gain_colors = ["#9ca3af" if abs(value) < 1e-9 else "#2ca02c" for value in accuracy_gain]
+    ax_gain.barh(y_positions, accuracy_gain, color=gain_colors)
+    ax_gain.axvline(0, color="#555555", linewidth=1)
+    ax_gain.set_yticks(y_positions)
+    ax_gain.set_yticklabels(labels)
+    ax_gain.set_xlabel("Test accuracy gain vs baseline (%p)")
+    ax_gain.set_title("Accuracy gain is tiny")
+    ax_gain.grid(axis="x", alpha=0.25)
+    for y_value, gain in zip(y_positions, accuracy_gain):
+        ax_gain.text(
+            gain + 0.004,
+            y_value,
+            f"{gain:+.2f}%p",
+            va="center",
+            fontsize=9,
+        )
+
+    height = 0.34
+    ax_cost.barh(y_positions - height / 2, time_ratio, height, label="time x", color="#1f77b4")
+    ax_cost.barh(y_positions + height / 2, param_ratio, height, label="params x", color="#ff7f0e")
+    ax_cost.axvline(1.0, color="#555555", linewidth=1)
+    ax_cost.set_yticks(y_positions)
+    ax_cost.set_yticklabels([])
+    ax_cost.set_xlabel("Multiplier vs baseline")
+    ax_cost.set_title("Cost often grows more clearly")
+    ax_cost.grid(axis="x", alpha=0.25)
+    ax_cost.legend()
+    for y_value, time_value, param_value in zip(y_positions, time_ratio, param_ratio):
+        ax_cost.text(time_value + 0.04, y_value - height / 2, f"{time_value:.2f}x", va="center", fontsize=8)
+        ax_cost.text(param_value + 0.04, y_value + height / 2, f"{param_value:.2f}x", va="center", fontsize=8)
+
+    fig.suptitle("Full-data sweep takeaway: small accuracy gains, visible cost tradeoffs")
+    fig.tight_layout()
+    fig.savefig(output_dir / "full_data_effect_summary.png", dpi=160)
+    plt.close(fig)
+
     plt.figure(figsize=(9, 5))
     plt.bar(names, increase_counts)
     plt.ylabel("Number of Epoch-to-Epoch Loss Increases")
