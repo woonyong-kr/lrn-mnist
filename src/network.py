@@ -11,7 +11,7 @@ import numpy as np
 
 from activations import ReLU, Softmax
 from layers import Affine, BatchNorm, Dropout
-from losses import cross_entropy_loss
+from losses import cross_entropy_gradient, cross_entropy_loss
 
 
 class NeuralNetwork:
@@ -104,9 +104,22 @@ class NeuralNetwork:
 
         return dout
 
-    def loss(self, x, y):
-        """현재 모델의 예측 확률을 만든 뒤 cross entropy loss를 반환합니다."""
+    def gradient(self, x, y):
+        """
+        학습 1회분 gradient를 계산하고 self.grads를 채웁니다.
+
+        순전파로 loss를 구하고, softmax + cross entropy의 미분값을 시작점으로
+        backward를 돌립니다.
+        """
         y_pred = self.forward(x, train=True)
+        loss = cross_entropy_loss(y_pred, y)
+        dout = cross_entropy_gradient(y_pred, y)
+        self.backward(dout)
+        return loss
+
+    def loss(self, x, y, train=True):
+        """현재 모델의 예측 확률을 만든 뒤 cross entropy loss를 반환합니다."""
+        y_pred = self.forward(x, train=train)
         return cross_entropy_loss(y_pred, y)
 
     def predict(self, x):

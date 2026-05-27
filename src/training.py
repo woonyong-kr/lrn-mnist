@@ -4,8 +4,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from losses import cross_entropy_loss
-
 
 def train(model, optimizer, x_train, y_train, epochs=20, batch_size=128):
     """
@@ -31,14 +29,7 @@ def train(model, optimizer, x_train, y_train, epochs=20, batch_size=128):
             x_batch = x_train[batch_indices]
             y_batch = y_train[batch_indices]
 
-            y_pred = model.forward(x_batch, train=True)
-            loss = cross_entropy_loss(y_pred, y_batch)
-
-            dout = y_pred.copy()
-            dout[np.arange(y_batch.size), y_batch] -= 1
-            dout /= y_batch.size
-
-            model.backward(dout)
+            loss = model.gradient(x_batch, y_batch)
             optimizer.update(model.params, model.grads)
 
             epoch_loss += loss
