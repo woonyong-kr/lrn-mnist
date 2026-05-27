@@ -74,6 +74,8 @@ PyTorch, TensorFlow 같은 딥러닝 프레임워크 없이 NumPy만으로 MNIST
 | Matplotlib | 3.10.9 |
 | 단일 기준 실험 스크립트 | `scripts/run_report_experiment.py` |
 | 하이퍼파라미터 스윕 스크립트 | `scripts/run_hparam_sweep.py` |
+| Optimizer 비교 스크립트 | `scripts/run_optimizer_sweep.py` |
+| 진단 실험 스크립트 | `scripts/run_diagnostic_experiments.py` |
 
 ### 환경 선택 기준
 
@@ -149,6 +151,56 @@ Adam 5개 실험의 Test 정확도 범위는 98.40~98.54%로 0.14%p였고, SGD�
 
 ![Optimizer Loss Curves](report_assets/optimizer_sweep/optimizer_loss_curves.png)
 
+### 상관관계 진단 실험
+
+전체 60,000개 학습 데이터를 사용하는 최종 성능 실험은 이미 98%대에 도달해 조건별 정확도 차이가 작았다. 그래서 상관관계를 더 분명히 보기 위해 별도의 진단 실험을 추가했다. 이 실험은 최종 제출 점수를 고르기 위한 실험이 아니라, 과적합·학습률·반복 횟수의 영향을 눈에 보이게 만들기 위한 실험이다.
+
+진단 실험은 두 종류로 나누었다.
+
+- **과적합 실험**: train 500개만 사용하고, 은닉층 `[1024, 512]`의 큰 모델을 120 epoch 학습했다.
+- **학습률 안정성 실험**: train 5,000개만 사용하고 Adam `lr=0.001`, SGD `lr=0.1`, SGD `lr=1.0`을 30 epoch 비교했다.
+
+#### 기존 전체 데이터 실험의 상관 산점도
+
+아래 그래프는 전체 데이터 하이퍼파라미터 스윕 결과에서 업데이트 수, 최종 loss, train-test gap, 파라미터 수와 Test 정확도의 관계를 그린 것이다.
+
+![Correlation Summary](report_assets/diagnostics/correlation_summary.png)
+
+정확도 범위가 98.40~98.54%로 매우 좁기 때문에 강한 선형 상관은 보이지 않는다. 특히 `epochs_30`은 업데이트 수와 train 정확도는 늘었지만 Test 정확도는 기준과 같았다. `wide_1024_512`는 파라미터 수를 크게 늘렸지만 `batch_64`와 같은 Test 정확도에 머물렀다. 이 결과는 MNIST에서 현재 모델이 이미 충분히 수렴했기 때문에, 단순히 업데이트 수나 파라미터 수를 늘리는 것만으로 Test 정확도가 계속 증가하지 않는다는 뜻이다.
+
+#### 손실은 항상 균일하게 감소하는가
+
+![Loss Monotonicity](report_assets/diagnostics/loss_monotonicity.png)
+
+손실은 전체적으로 감소하지만, 모든 epoch에서 항상 균일하게 감소하지는 않았다. 미니배치 순서가 매 epoch 섞이고 Dropout이 무작위로 적용되기 때문에 epoch 평균 loss에도 작은 흔들림이 생긴다. 특히 `dropout_0_4 + epochs_30` 조합은 후반부에 loss 증가가 6번 발생했다. 따라서 학습 곡선은 “큰 추세로 감소하는지”를 봐야 하고, 한두 epoch의 작은 반등만으로 실패라고 판단하면 안 된다.
+
+#### 과적합을 의도적으로 만든 결과
+
+| 실험 | 조건 | Train | Test | Gap | Train loss | Test loss |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `tiny_wide_no_reg` | train 500개, 큰 모델, 정규화 없음 | 100.00% | 83.44% | 16.56%p | 0.0000 | 0.8585 |
+| `tiny_wide_regularized` | train 500개, 큰 모델, BatchNorm+Dropout | 100.00% | 83.52% | 16.48%p | 0.0001 | 0.6529 |
+
+![Overfit Accuracy Gap](report_assets/diagnostics/overfit_accuracy_gap.png)
+
+train 데이터가 500개로 작고 모델은 큰 경우, 모델은 몇 epoch 만에 train 정확도 100%에 도달했다. 하지만 test 정확도는 83%대에서 거의 멈췄고, train-test gap은 약 16%p 이상으로 벌어졌다. 이 그래프가 과적합의 가장 직접적인 증거다.
+
+![Overfit Loss Gap](report_assets/diagnostics/overfit_loss_gap.png)
+
+loss 기준으로 보면 과적합이 더 분명하다. train loss는 거의 0까지 내려가지만 test loss는 초반에 내려간 뒤 다시 상승한다. 즉 모델이 train 500개를 외우는 방향으로 계속 최적화되면서, test 데이터에 대한 일반화 성능은 더 좋아지지 않는다. 이 실험은 epoch를 무작정 늘리면 train loss는 좋아져도 test loss가 나빠질 수 있음을 보여준다.
+
+#### 학습률과 optimizer 안정성
+
+| 실험 | Train | Test | Gap | Test loss | 해석 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `adam_lr_0_001` | 99.94% | 93.16% | 6.78%p | 0.2401 | 안정적으로 감소 |
+| `sgd_lr_0_1` | 98.38% | 91.56% | 6.82%p | 0.2735 | 느리지만 안정적 |
+| `sgd_lr_1_0` | 99.90% | 93.62% | 6.28%p | 0.2370 | 최종값은 좋지만 중간 진동이 큼 |
+
+![Learning Rate Stability](report_assets/diagnostics/learning_rate_stability.png)
+
+SGD `lr=1.0`은 최종 Test 정확도만 보면 좋아 보이지만, 중간에 test loss가 크게 튀는 구간이 여러 번 발생했다. 반면 Adam `lr=0.001`은 더 부드럽게 감소했다. 따라서 “최종 정확도”만 보면 두 설정의 차이가 작아 보일 수 있지만, 곡선을 보면 학습 안정성의 차이가 드러난다.
+
 ---
 
 ## 6. 회고
@@ -162,6 +214,12 @@ Adam 5개 실험의 Test 정확도 범위는 98.40~98.54%로 0.14%p였고, SGD�
 - Adam, BatchNorm, Dropout 조합이 학습을 안정화해 batch size, Dropout, epoch 변화에 대한 민감도를 줄였다.
 
 Optimizer 비교를 추가로 수행하자 이 해석이 더 분명해졌다. Adam은 조건을 바꿔도 정확도가 좁은 범위에 모였지만, SGD는 전체 정확도가 낮고 조건별 변동폭도 더 컸다. 즉 앞선 결과의 작은 차이는 실험이 잘못된 것이 아니라, Adam 기반 모델이 이미 안정적으로 수렴했고 MNIST에서 정확도 개선 여지가 작았기 때문으로 해석할 수 있다.
+
+### 상관관계를 극적으로 보이게 하려면 왜 진단 실험이 필요한가
+
+최종 제출용 실험은 좋은 성능을 내는 조건을 찾는 것이 목적이다. 반면 상관관계를 이해하려면 일부러 실패하거나 흔들리는 조건도 필요하다. 전체 train 60,000개를 쓰고 Adam, BatchNorm, Dropout을 함께 사용하면 대부분의 설정이 잘 수렴하기 때문에 그래프 차이가 작게 보인다.
+
+진단 실험에서 train 데이터를 500개로 줄이고 큰 모델을 오래 학습시키자, train 정확도는 100%인데 test 정확도는 83%대에 머무는 과적합이 뚜렷하게 나타났다. 또한 SGD 학습률을 1.0으로 키우자 최종 정확도는 나쁘지 않아도 test loss가 크게 흔들렸다. 따라서 상관관계는 “좋은 최종 설정끼리 비교”할 때보다 “데이터 부족, 정규화 부족, 과도한 학습률”처럼 일부러 조건을 흔들 때 훨씬 잘 보인다.
 
 ### 하이퍼파라미터별 상관관계
 
