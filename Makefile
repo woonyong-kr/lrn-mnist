@@ -1,14 +1,20 @@
-CONDA ?= conda
-CONDA_ENV ?= mnist-nn
-PYTHON ?= $(CONDA) run -n base python
-
-.PHONY: setup test download
-
+PYTHON := .venv/bin/python
+export OPENBLAS_NUM_THREADS := 1
+export VECLIB_MAXIMUM_THREADS := 1
+.PHONY: setup demo test train evaluate serve download
 setup:
-	$(PYTHON) scripts/setup_env.py --conda "$(CONDA)" --env "$(CONDA_ENV)" --file environment.yml
+	uv venv --python 3.12 .venv --allow-existing
+	uv pip sync --python $(PYTHON) requirements.lock
 
 test:
-	$(CONDA) run -n "$(CONDA_ENV)" python -m pytest tests -v
-
+	$(PYTHON) -m pytest -q
+demo:
+	$(PYTHON) src/application.py demo
+train:
+	$(PYTHON) src/application.py train
+evaluate:
+	$(PYTHON) src/application.py evaluate --output .artifacts/evaluation/metrics.json
+serve:
+	$(PYTHON) src/application.py serve
 download:
-	$(CONDA) run -n "$(CONDA_ENV)" python download_mnist.py
+	$(PYTHON) download_mnist.py

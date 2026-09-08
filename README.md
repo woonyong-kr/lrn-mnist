@@ -1,154 +1,51 @@
-# 과제 - 신경망을 이용한 손글씨 숫자 인식
+# lrn-mnist
 
-## 1. 개요
+NumPy로 직접 학습하는 손글씨 숫자 인식기. 핵심 엔진을 실제 입력으로 실행하고 결과와 내부 동작을 확인하는 독립 프로그램이다.
 
-본 과제는 **PyTorch, TensorFlow 등 외부 딥러닝 프레임워크를 사용하지 않고**, `NumPy`만으로 신경망의 핵심 구성 요소를 직접 구현하는 것을 목표로 합니다.
+## 실행
 
-- **최종 목표**: MNIST 필기체 숫자 분류기 구현, **테스트 정확도 97% 이상** (최소 95% 이상)
-- **참고 도서**: 『밑바닥부터 시작하는 딥러닝』 1~6장
+Python 3.12와 uv가 필요하다. `make setup`은 이 저장소의 `.venv`만 준비하며 의존성을 `requirements.lock`으로 고정한다.
 
----
-
-## 2. 환경 설정
-
-### 2.1 요구 사항
-
-- **Python 3.11** (로컬 Conda 환경은 3.11로 통일)
-- **허용 라이브러리**: `numpy`, `math`, `random`, `time`, `matplotlib`(시각화)
-- **금지**: 허용 라이브러리 이외의 모든 라이브러리
-
-### **2.2 Colab에서 사용할 때 (권장)**
-
-1. 먼저 과제 템플릿을 본인 팀 저장소에 업로드합니다.
-2. 브라우저에서 아래 주소로 이동해 노트북을 엽니다. `USERNAME`, 저장소명, 브랜치명은 본인 또는 팀 환경에 맞게 바꿉니다. (브랜치가 `main`이면 URL의 `master`를 `main`으로 변경)
-  ```python
-    https://colab.research.google.com/github/USERNAME/mnist-lab/blob/master/mnist_lab.ipynb
-  ```
-3. **런타임 설정**: 상단 메뉴 **런타임 → 런타임 유형 변경**에서 **Python 3**, CPU 또는 GPU를 선택합니다.
-4. **첫 셀 실행**: 노트북 맨 위의 **「1. 환경설정」** 코드 셀을 먼저 실행합니다.
-
-- **Colab에서만** 다음 두 가지를 입력합니다.
-  - **GitHub 저장소 URL** (예: `github.com/USERNAME/mnist-lab.git`)
-  - **GitHub Personal Access Token** (private 저장소인 경우)
-
-5. 그 다음 셀부터 순서대로 실행하여 학습·평가를 진행합니다.
-
-### 2.3 로컬에서 실행할 때 (Conda)
-
-로컬에서는 **Conda**로 환경을 만들고 실행합니다. **Mac**은 **Miniforge**, **Windows**는 **Anaconda**를 사용하며, **Python 3.11**로 통일합니다.
-
-#### Mac (Apple Silicon) — Miniforge
-
-1. **Miniforge 설치** (Apple Silicon용, conda-forge 채널 기본)
-  - 다운로드: [Miniforge - GitHub](https://github.com/conda-forge/miniforge#miniforge3)
-  - Apple Silicon: `Miniforge3-macOS-arm64` 설치 파일 사용
-  - 설치 후 Conda 위치(기본): `~/miniforge3` (홈 디렉터리 아래)
-2. **터미널에서**:
-
-```bash
-# 저장소로 이동
-cd mnist-lab
-
-# Conda 환경 생성/업데이트
+```sh
 make setup
-
-# 환경 활성화
-conda activate mnist-nn
-
-# 테스트 실행 (선택)
 make test
+make demo
+make serve
+# 브라우저: http://127.0.0.1:8765
+.venv/bin/python src/application.py predict examples/digit-7.png
+# 새 모델을 학습할 때 (기본 모델은 덮어쓰지 않음)
+make train
+.venv/bin/python src/application.py evaluate --model .artifacts/model.npz --output .artifacts/my-evaluation/metrics.json
 ```
 
-- Miniforge가 PATH에 없으면: `~/miniforge3/bin/conda activate mnist-nn` 처럼 전체 경로로 실행
+대화형 서버는 해당 터미널에서 Ctrl-C로 종료한다. demo/test의 자식 프로세스는 실행기가 보유한 PID 또는 컨테이너 ID로만 종료한다. 다른 서버를 포트 번호로 찾아 일괄 종료하지 않는다. 준비된 Python 환경이 없으면 먼저 `make setup`을 실행한다.
 
-#### Windows — Anaconda
+## 입력에서 출력까지
 
-1. **Anaconda 설치**
-  - 다운로드: [Anaconda Distribution](https://www.anaconda.com/download)
-  - 설치 시 **"Add Anaconda to my PATH environment variable"** 옵션 권장 (체크 시 터미널에서 `conda` 바로 사용)
-  - 설치 후 Conda 위치(기본): `C:\Users\<사용자명>\anaconda3` 또는 `C:\ProgramData\anaconda3`
-2. **PowerShell** 또는 **명령 프롬프트(cmd)** 에서:
+이미지 → 반전·crop·20×20 비율 유지·28×28 중심 정렬 → 직접 구현한 MLP → 10개 class probability
 
-```bash
-# 저장소로 이동
-cd mnist-lab
+기존 NumPy Affine·ReLU·Softmax·Cross Entropy와 직접 구현한 backward, SGD·Adam, BatchNorm·Dropout을 사용한다. 학습 때만 dropout을 적용하고 추론에서는 저장된 BatchNorm running statistics를 쓴다.
 
-# Conda 환경 생성/업데이트
-make setup
+공식 MNIST training 60,000개를 seed 42로 50,000 training / 10,000 validation으로 나눈다. 공식 test 10,000개는 모델 선택에 사용하지 않는다. 모델은 validation accuracy로 선택하며 training 도중 test 평가를 하지 않는다.
 
-# 환경 활성화
-conda activate mnist-nn
+`models/reference.npz`에 실제 학습 모델을 포함하므로 demo·웹 추론에는 데이터 다운로드나 재학습이 필요 없다. NumPy arrays와 JSON manifest만 저장하고 pickle을 사용하지 않는다. 기본 제공 모델은 hidden [128,64], BN, dropout 0.1, Adam lr 0.001, batch 128, seed 42, 8 epoch로 학습했다. 2026-09-08 검증에서 validation 97.84%, 공식 test 97.80%였다. test는 선택한 모델에 대해 한 번 평가한 결과이며 미래 입력 정확도 보장이 아니다.
 
-# 테스트 실행 (선택)
-make test
-```
+웹은 loopback에서 동작한다. 실제 28×28 입력과 모든 class 점수를 보여 주며 빈 입력은 거절한다. 원본 검증 예제 PNG는 MNIST test에서 각 숫자의 첫 항목을 가져왔다. 사용자 손그림은 자동으로 반전·crop·중심 정렬된다.
 
-- PATH에 없으면: `C:\Users\<사용자명>\anaconda3\Scripts\conda.exe activate mnist-nn` 처럼 전체 경로로 실행
-- `make` 명령이 없으면 아래 명령으로 같은 환경 설정을 실행할 수 있습니다.
-  ```bash
-  conda run -n base python scripts/setup_env.py --conda conda --env mnist-nn --file environment.yml
-  ```
-- **환경 비활성화**: `conda deactivate`
+구현을 읽는 순서: `src/application.py`, `src/network.py`, `src/layers.py`, `web/index.html`.
 
-### 2.4 MNIST 데이터 (data 폴더)
+## 검증과 관찰
 
-- MNIST 데이터는 **`data/mnist.npz`**에 두고 사용합니다.
-- **`load_mnist()`**는 이미 구현되어 있습니다.
-  - `data/mnist.npz`가 있으면 해당 파일을 로드합니다.
-  - 없으면 URL에서 다운로드한 뒤 `data/` 폴더에 저장한 후 로드합니다.
-- 데이터를 미리 받으려면 프로젝트 루트에서 **`make download`**를 한 번 실행하면 됩니다.
+기존 layer/optimizer 테스트와 MLP 수치 미분, checkpoint 전후 예측의 정확한 일치, 분리된 split, 극성 반전·빈 입력을 검증한다. confusion matrix와 오분류 PNG를 평가 출력으로 제공한다. 실제 브라우저에서 빈 입력 거절과 손그림 7 → 모델 입력 표시 → 예측 7을 확인했다.
 
----
+실행 환경·명령·exit code·원본 백업과 전체 결과는 이번 전환의 별도 작업 폴더에 기록한다. 새 기계에서는 같은 명령으로 직접 재검증한다. 수치가 기록되어 있다는 사실과 현재 실행 성공을 구분한다.
 
-## 3. 프로젝트 구조
+## 지원 범위와 한계
 
-```
-mnist-lab/
-├── .gitignore                     # data/mnist.npz, __pycache__ 등 제외
-├── README.md                      # 이 파일 (과제 안내·환경)
-├── REPORT.md                      # 제출용 보고서 (형식 예시)
-├── environment.yml                # Conda 환경과 의존성 정의
-├── Makefile                       # setup/test/download 명령
-├── download_mnist.py              # MNIST를 data/에 미리 다운로드 (선택)
-├── mnist_lab.ipynb                # Colab/로컬용 노트북 (환경설정 → 데이터 로드 → 학습 → 평가)
-├── data/                          # MNIST 데이터 (mnist.npz는 load_mnist() 또는 download_mnist.py로 생성)
-├── src/
-│   ├── __init__.py
-│   ├── data.py                    # 데이터 로드
-│   ├── activations.py             # ReLU, Softmax
-│   ├── layers.py                  # Affine, BatchNorm, Dropout
-│   ├── losses.py                  # cross_entropy_loss
-│   ├── optimizers.py              # SGD, Adam
-│   ├── network.py                 # NeuralNetwork
-│   └── training.py                # train, evaluate, plot_loss_history
-└── tests/
-    ├── conftest.py                # 테스트 공통 import 경로 설정
-    ├── test_relu.py               # ReLU 테스트
-    ├── test_softmax.py            # Softmax 테스트
-    ├── test_affine.py             # Affine 테스트
-    ├── test_cross_entropy_loss.py # cross_entropy_loss 테스트
-    ├── test_sgd.py                # SGD 테스트
-    ├── test_adam.py               # Adam 테스트
-    ├── test_neural_network.py     # NeuralNetwork 테스트
-    ├── test_batchnorm.py          # BatchNorm 테스트
-    ├── test_dropout.py            # Dropout 테스트
-    ├── test_training.py           # train 테스트
-    └── test_evaluate.py           # evaluate 테스트
-```
+숫자 하나만 입력한다. CNN·ViT·여러 숫자·OCR·일반 이미지 분류·PyTorch 대체는 제외한다. MNIST와 손그림의 굵기·위치·필기 형태가 달라 오분류할 수 있다. class probability는 보정된 confidence가 아니다.
 
-`src/`에는 Python이 import하는 구현 파일만 둡니다. `mnist_lab.ipynb`는 학생이 가장 먼저 열어 실행 순서를 따라가는 안내서이므로 프로젝트 루트에 둡니다. 테스트와 노트북은 `from activations import ReLU`, `from network import NeuralNetwork`처럼 역할별 모듈을 직접 import합니다.
+`make train`/`make evaluate`는 데이터가 없으면 공개 Keras 배포의 `mnist.npz` 약 11 MiB를 내려받는다. 실제 모델 준비 시간·데이터 SHA-256은 `models/manifest.json`에 기록한다. 다운로드·의존성 설치 시간은 학습 시간에 포함하지 않는다. 기본 모델은 weights+BN 통계 복원용이며 optimizer까지 이어 학습하는 기능은 제공하지 않는다.
 
----
+## 원본·학습 문서의 경계
 
-## 4. 제출물
-
-- **팀별 제출**: **동작하는 소스코드** + **REPORT.md**
-- **소스코드**: `src/` 아래 소스 전체를 zip으로 압축 
-- **REPORT.md** 에 다음 구성을 포함할 것 (형식 예시: 저장소의 `REPORT.md` 참고):
-  - **0. 반·팀원**: 반, 팀원 이름
-  - **1. 실험 목적**: 과제 요약 (한두 문장)
-  - **2. 모델 구조**: 입력/은닉층/출력, Affine·BatchNorm·ReLU·Dropout 구성
-  - **3. 학습 설정**: 옵티마이저, 학습률, epochs, batch_size, Dropout 비율, BatchNorm momentum, 가중치 초기화
-  - **4. 실험 환경**: Python·라이브러리, 학습 소요 시간
-  - **5. 결과**: 테스트 정확도(%), 총 파라미터 수, 손실 커브 (그래프 또는 요약)
-  - **6. 회고**: 수렴 여부, 과적합/과소적합, 구조·하이퍼파라미터 변경 시도와 결과
+[원본 아카이브와 기여 구분](archive/README.md)을 확인한다. 이 저장소는 실행 코드·테스트·사용법·설계 근거를 소유한다. WIKI는 개념 정본을 소유하며 기존 정본·공통 색인·배포 파일을 이 작업에서 수정하지 않는다. SQL·PintOS와 RepoLM/음성 서비스는 이 프로그램의 실행 의존성이 아니다.

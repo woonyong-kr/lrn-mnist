@@ -40,3 +40,7 @@ docs/*
 
 # Annotation (auto-generated)
 .annotation/
+
+.venv/
+.artifacts/
+!models/reference.npz
