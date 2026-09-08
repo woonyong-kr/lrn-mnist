@@ -18,7 +18,7 @@ make train
 .venv/bin/python src/application.py evaluate --model .artifacts/model.npz --output .artifacts/my-evaluation/metrics.json
 ```
 
-대화형 서버는 해당 터미널에서 Ctrl-C로 종료한다. demo/test의 자식 프로세스는 실행기가 보유한 PID 또는 컨테이너 ID로만 종료한다. 다른 서버를 포트 번호로 찾아 일괄 종료하지 않는다. 준비된 Python 환경이 없으면 먼저 `make setup`을 실행한다.
+서버는 Ctrl-C로 종료한다. demo/test는 자신이 만든 프로세스만 종료한다.
 
 ## 입력에서 출력까지
 
@@ -46,6 +46,8 @@ make train
 
 `make train`/`make evaluate`는 데이터가 없으면 공개 Keras 배포의 `mnist.npz` 약 11 MiB를 내려받는다. 실제 모델 준비 시간·데이터 SHA-256은 `models/manifest.json`에 기록한다. 다운로드·의존성 설치 시간은 학습 시간에 포함하지 않는다. 기본 모델은 weights+BN 통계 복원용이며 optimizer까지 이어 학습하는 기능은 제공하지 않는다.
 
-## 원본·학습 문서의 경계
+## 출처와 기여
 
-[원본 아카이브와 기여 구분](archive/README.md)을 확인한다. 이 저장소는 실행 코드·테스트·사용법·설계 근거를 소유한다. WIKI는 개념 정본을 소유하며 기존 정본·공통 색인·배포 파일을 이 작업에서 수정하지 않는다. SQL·PintOS와 RepoLM/음성 서비스는 이 프로그램의 실행 의존성이 아니다.
+[woonyong-kr/SW_AI-W13-mnist](https://github.com/woonyong-kr/SW_AI-W13-mnist), [Jungle-12-303/wk13_6_mnist](https://github.com/Jungle-12-303/wk13_6_mnist), [krafton-jungle/mnist-lab](https://github.com/krafton-jungle/mnist-lab)에서 이어 받은 학습용 파생본이다. 기준 원본 revision은 `6a7e4511eb6b97b1762d32648d638c60b5ab9668`이다. 원본 과제·팀 코드와 이후 개인 확장을 구분하며, 개별 기여는 Git author와 diff로 확인한다. 기존 저작권 표시는 소스에 유지한다.
+
+과거 문서·실험·기여 기록은 [정리 전 이력](https://github.com/woonyong-kr/lrn-mnist/tree/1c28de6983671e891faac453e392f68b354bdb53)에서 확인할 수 있다. 실행법과 지원 계약은 이 README에 모았다. 개념·설계·실험 해석 자료는 개인 WIKI inbox에서 검토한 뒤 기존 정본에 흡수한다.

@@ -1,34 +1,52 @@
-# -*- coding: utf-8 -*-
-"""train() 학습 루프 단계 테스트."""
-
 import numpy as np
 import pytest
-
-from network import NeuralNetwork
-from optimizers import Adam
-from training import train
+from layers import BatchNorm, Dropout
+from optimizers import Adam, SGD
 
 
-class TestTrain:
-    """Step 10: train() 구현 후 실행. 짧은 epoch로만 검증."""
+def test_batchnorm_backward_matches_numeric_gradient_and_inference_uses_running_stats():
+    x = np.array([[1.0, 2.0], [3.0, -1.0], [2.0, 4.0]])
+    gamma, beta = np.array([1.2, 0.8]), np.array([0.1, -0.2])
+    layer = BatchNorm(gamma, beta)
+    dout = np.array([[0.2, -0.5], [0.7, 0.3], [-0.1, 0.9]])
+    layer.forward(x)
+    dx = layer.backward(dout)
+    for value, analytical in [
+        (x, dx.copy()),
+        (gamma, layer.dgamma.copy()),
+        (beta, layer.dbeta.copy()),
+    ]:
+        for idx in np.ndindex(value.shape):
+            old, eps = value[idx], 1e-5
+            value[idx] = old + eps
+            plus = np.sum(layer.forward(x) * dout)
+            value[idx] = old - eps
+            minus = np.sum(layer.forward(x) * dout)
+            value[idx] = old
+            assert analytical[idx] == pytest.approx(
+                (plus - minus) / (2 * eps), abs=1e-7
+            )
+    mean, var = layer.running_mean.copy(), layer.running_var.copy()
+    np.testing.assert_allclose(
+        layer.forward(x, train=False), gamma * (x - mean) / np.sqrt(var + 1e-7) + beta
+    )
+    np.testing.assert_array_equal(layer.running_mean, mean)
 
-    @pytest.fixture
-    def tiny_data(self):
-        """테스트용 소량 데이터. 네트워크나 파일 다운로드가 필요 없다."""
-        np.random.seed(42)
-        x = np.random.rand(256, 784).astype(np.float32)
-        y = np.random.randint(0, 10, 256)
-        return x, y
 
-    def test_train_returns_loss_history(self, tiny_data):
-        """train()이 1 epoch 학습을 수행하고 epoch별 loss history를 반환하는지 확인한다."""
-        try:
-            model = NeuralNetwork(use_batchnorm=True, use_dropout=True)
-        except TypeError:
-            model = NeuralNetwork()
-        optimizer = Adam(lr=0.001)
-        x_train, y_train = tiny_data
-        history = train(model, optimizer, x_train, y_train, epochs=1, batch_size=64)
-        assert isinstance(history, list)
-        assert len(history) == 1
-        assert history[0] >= 0
+def test_dropout_train_backward_and_inference(monkeypatch):
+    monkeypatch.setattr(np.random, "rand", lambda *shape: np.array([[0.2, 0.8]]))
+    layer = Dropout(0.5)
+    np.testing.assert_array_equal(layer.forward(np.array([[2.0, 4.0]])), [[0.0, 4.0]])
+    np.testing.assert_array_equal(layer.backward(np.array([[3.0, 5.0]])), [[0.0, 5.0]])
+    np.testing.assert_array_equal(
+        layer.forward(np.array([[2.0, 4.0]]), train=False), [[1.0, 2.0]]
+    )
+
+
+@pytest.mark.parametrize("optimizer", [SGD, Adam])
+def test_optimizer_constant_gradient_two_steps(optimizer):
+    params = {"w": np.array([1.0, -1.0])}
+    opt = optimizer(lr=0.1)
+    for _ in range(2):
+        opt.update(params, {"w": np.array([1.0, -1.0])})
+    np.testing.assert_allclose(params["w"], [0.8, -0.8], atol=1e-7)
