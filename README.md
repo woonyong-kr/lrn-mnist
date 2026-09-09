@@ -54,6 +54,6 @@ make test
 
 ## 출처와 기여
 
-[woonyong-kr/SW_AI-W13-mnist](https://github.com/woonyong-kr/SW_AI-W13-mnist), [Jungle-12-303/wk13_6_mnist](https://github.com/Jungle-12-303/wk13_6_mnist), [krafton-jungle/mnist-lab](https://github.com/krafton-jungle/mnist-lab)에서 이어 받은 학습용 파생본이다. 기준 원본 revision은 `6a7e4511eb6b97b1762d32648d638c60b5ab9668`이다. 원본 과제·팀 코드와 이후 개인 확장을 구분하며, 개별 기여는 Git author와 diff로 확인한다. 기존 저작권 표시는 소스에 유지한다.
+`krafton-jungle/mnist-lab` 과제와 `Jungle-12-303/wk13_6_mnist` 팀 구현을 거친 `woonyong-kr/SW_AI-W13-mnist`에서 이어 받은 학습용 파생본이다. 기준 원본 revision은 `6a7e4511eb6b97b1762d32648d638c60b5ab9668`이다. 과제 제공물·팀 구현·이후 확장은 Git author와 diff로 구분하며, 기존 저작권 표시는 유지한다. 원본 주소의 공개 접근이 제한돼 있어 자료는 아래 이력 링크로 확인할 수 있다.
 
 기존 신경망 구현 위에 데이터 분리, 모델 저장·복원, 이미지 CLI와 손그림 화면을 연결했다. 과제 설명과 이전 실험은 [정리 전 이력](https://github.com/woonyong-kr/lrn-mnist/tree/1c28de6983671e891faac453e392f68b354bdb53)에 남아 있다.
