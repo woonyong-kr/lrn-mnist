@@ -1,6 +1,6 @@
 # lrn-mnist
 
-NumPy로 직접 학습하는 손글씨 숫자 인식기. 핵심 엔진을 실제 입력으로 실행하고 결과와 내부 동작을 확인하는 독립 프로그램이다.
+숫자 이미지 한 장을 받아 0~9로 분류하는 NumPy 신경망이다. 행렬 연산과 역전파를 직접 구현한 MLP를 학습하고, 저장한 모델로 이미지 파일이나 브라우저에서 그린 숫자를 판별한다. 전처리된 28×28 입력도 함께 보여 주므로 잘못 읽은 숫자가 어떤 모습으로 모델에 들어갔는지 확인할 수 있다.
 
 ## 실행
 
@@ -8,23 +8,27 @@ Python 3.12와 uv가 필요하다. `make setup`은 이 저장소의 `.venv`만 �
 
 ```sh
 make setup
-make test
 make demo
 make serve
 # 브라우저: http://127.0.0.1:8765
+```
+
+`make demo`는 제공된 숫자 7 이미지의 예측과 클래스별 점수를 출력한다. `make serve`는 손그림 화면을 열며 Ctrl-C로 종료한다. 둘 다 저장소에 포함된 모델을 사용하므로 재학습이나 MNIST 다운로드가 필요 없다.
+
+다른 이미지나 새로 학습한 모델을 사용하려면 다음 명령을 실행한다.
+
+```sh
 .venv/bin/python src/application.py predict examples/digit-7.png
 # 새 모델을 학습할 때 (기본 모델은 덮어쓰지 않음)
 make train
 .venv/bin/python src/application.py evaluate --model .artifacts/model.npz --output .artifacts/my-evaluation/metrics.json
 ```
 
-서버는 Ctrl-C로 종료한다. demo/test는 자신이 만든 프로세스만 종료한다.
-
 ## 입력에서 출력까지
 
 이미지 → 반전·crop·20×20 비율 유지·28×28 중심 정렬 → 직접 구현한 MLP → 10개 class probability
 
-기존 NumPy Affine·ReLU·Softmax·Cross Entropy와 직접 구현한 backward, SGD·Adam, BatchNorm·Dropout을 사용한다. 학습 때만 dropout을 적용하고 추론에서는 저장된 BatchNorm running statistics를 쓴다.
+기존 NumPy Affine·ReLU·Softmax·Cross Entropy와 직접 구현한 backward, SGD·Adam, BatchNorm·Dropout을 사용한다. Dropout은 학습 때 무작위 mask를 적용하고 추론 때는 유지 비율을 곱하는 방식이다. BatchNorm은 추론 때 저장된 running statistics를 쓴다.
 
 공식 MNIST training 60,000개를 seed 42로 50,000 training / 10,000 validation으로 나눈다. 공식 test 10,000개는 모델 선택에 사용하지 않는다. 모델은 validation accuracy로 선택하며 training 도중 test 평가를 하지 않는다.
 
@@ -32,13 +36,15 @@ make train
 
 웹은 loopback에서 동작한다. 실제 28×28 입력과 모든 class 점수를 보여 주며 빈 입력은 거절한다. 원본 검증 예제 PNG는 MNIST test에서 각 숫자의 첫 항목을 가져왔다. 사용자 손그림은 자동으로 반전·crop·중심 정렬된다.
 
-구현을 읽는 순서: `src/application.py`, `src/network.py`, `src/layers.py`, `web/index.html`.
+학습·저장·전처리·CLI는 [`application.py`](src/application.py), MLP 구성은 [`network.py`](src/network.py), 각 계층의 forward/backward는 [`layers.py`](src/layers.py), 손그림 화면은 [`web/index.html`](web/index.html)에 있다.
 
 ## 검증과 관찰
 
-기존 layer/optimizer 테스트와 MLP 수치 미분, checkpoint 전후 예측의 정확한 일치, 분리된 split, 극성 반전·빈 입력을 검증한다. confusion matrix와 오분류 PNG를 평가 출력으로 제공한다. 실제 브라우저에서 빈 입력 거절과 손그림 7 → 모델 입력 표시 → 예측 7을 확인했다.
+```sh
+make test
+```
 
-실행 환경·명령·exit code·원본 백업과 전체 결과는 이번 전환의 별도 작업 폴더에 기록한다. 새 기계에서는 같은 명령으로 직접 재검증한다. 수치가 기록되어 있다는 사실과 현재 실행 성공을 구분한다.
+계층과 optimizer의 계산, 수치 미분과 backward의 일치, 저장 전후 예측, 데이터 분리, 이미지 반전과 빈 입력 처리를 검사한다. 모델의 학습 조건·데이터 해시·혼동행렬은 [`models/manifest.json`](models/manifest.json)에 있다. `evaluate`는 test 정확도와 혼동행렬, 오분류 이미지를 출력한다.
 
 ## 지원 범위와 한계
 
@@ -50,4 +56,4 @@ make train
 
 [woonyong-kr/SW_AI-W13-mnist](https://github.com/woonyong-kr/SW_AI-W13-mnist), [Jungle-12-303/wk13_6_mnist](https://github.com/Jungle-12-303/wk13_6_mnist), [krafton-jungle/mnist-lab](https://github.com/krafton-jungle/mnist-lab)에서 이어 받은 학습용 파생본이다. 기준 원본 revision은 `6a7e4511eb6b97b1762d32648d638c60b5ab9668`이다. 원본 과제·팀 코드와 이후 개인 확장을 구분하며, 개별 기여는 Git author와 diff로 확인한다. 기존 저작권 표시는 소스에 유지한다.
 
-과거 문서·실험·기여 기록은 [정리 전 이력](https://github.com/woonyong-kr/lrn-mnist/tree/1c28de6983671e891faac453e392f68b354bdb53)에서 확인할 수 있다. 실행법과 지원 계약은 이 README에 모았다. 개념·설계·실험 해석 자료는 개인 WIKI inbox에서 검토한 뒤 기존 정본에 흡수한다.
+기존 신경망 구현 위에 데이터 분리, 모델 저장·복원, 이미지 CLI와 손그림 화면을 연결했다. 과제 설명과 이전 실험은 [정리 전 이력](https://github.com/woonyong-kr/lrn-mnist/tree/1c28de6983671e891faac453e392f68b354bdb53)에 남아 있다.
