@@ -1,10 +1,12 @@
-# lrn-mnist
+# ✍️ lrn-mnist
 
-숫자 이미지 한 장을 받아 0~9로 분류하는 NumPy 신경망이다. 행렬 연산과 역전파를 직접 구현한 MLP를 학습하고, 저장한 모델로 이미지 파일이나 브라우저에서 그린 숫자를 판별한다. 전처리된 28×28 입력도 함께 보여 주므로 잘못 읽은 숫자가 어떤 모습으로 모델에 들어갔는지 확인할 수 있다.
+손글씨 숫자 하나를 0~9로 분류하는 NumPy 신경망입니다. 직접 구현한 MLP와 backward로 모델을 학습하고, 이미지 파일이나 브라우저에서 그린 숫자를 판별합니다.
+
+[딥러닝 Wiki](https://docs.woonyong.com/wiki/deep-learning/) · [모델·혼동행렬·학습 조건](models/manifest.json)
 
 ## 실행
 
-Python 3.12와 uv가 필요하다. `make setup`은 이 저장소의 `.venv`만 준비하며 의존성을 `requirements.lock`으로 고정한다.
+Python 3.12와 [uv](https://docs.astral.sh/uv/getting-started/installation/)가 필요합니다. 의존성은 `requirements.lock`으로 고정합니다.
 
 ```sh
 make setup
@@ -13,44 +15,31 @@ make serve
 # 브라우저: http://127.0.0.1:8765
 ```
 
-`make demo`는 제공된 숫자 7 이미지의 예측과 클래스별 점수를 출력한다. `make serve`는 손그림 화면을 열며 Ctrl-C로 종료한다. 둘 다 저장소에 포함된 모델을 사용하므로 재학습이나 MNIST 다운로드가 필요 없다.
-
-다른 이미지나 새로 학습한 모델을 사용하려면 다음 명령을 실행한다.
+데모와 손그림 화면은 포함된 모델을 사용하므로 MNIST 다운로드나 재학습이 필요 없습니다. 예측 숫자·클래스별 점수와 실제 모델에 입력된 28×28 이미지를 확인합니다. 서버는 Ctrl-C로 종료합니다.
 
 ```sh
+make test
 .venv/bin/python src/application.py predict examples/digit-7.png
-# 새 모델을 학습할 때 (기본 모델은 덮어쓰지 않음)
+# 새 모델 학습은 별도 실행: 제공 모델을 덮어쓰지 않음
 make train
 .venv/bin/python src/application.py evaluate --model .artifacts/model.npz --output .artifacts/my-evaluation/metrics.json
 ```
 
-## 입력에서 출력까지
+## 구현과 설계
 
-이미지 → 반전·crop·20×20 비율 유지·28×28 중심 정렬 → 직접 구현한 MLP → 10개 class probability
+이미지 반전·crop·비율 유지·중심 정렬 → 28×28 입력 → MLP → 클래스별 점수로 이어집니다.
 
-기존 NumPy Affine·ReLU·Softmax·Cross Entropy와 직접 구현한 backward, SGD·Adam, BatchNorm·Dropout을 사용한다. Dropout은 학습 때 무작위 mask를 적용하고 추론 때는 유지 비율을 곱하는 방식이다. BatchNorm은 추론 때 저장된 running statistics를 쓴다.
+- [network.py](src/network.py)·[layers.py](src/layers.py): Affine, ReLU, Softmax, Cross Entropy와 backward, BatchNorm·Dropout, SGD·Adam.
+- [application.py](src/application.py): 전처리·학습·CLI·모델 저장. weights와 BatchNorm 통계를 NumPy 배열로 저장하며 pickle을 사용하지 않습니다.
+- [web/index.html](web/index.html): loopback에서 실행하는 손그림 화면. 빈 입력을 거절하고 전처리 결과를 보여 줍니다.
 
-공식 MNIST training 60,000개를 seed 42로 50,000 training / 10,000 validation으로 나눈다. 공식 test 10,000개는 모델 선택에 사용하지 않는다. 모델은 validation accuracy로 선택하며 training 도중 test 평가를 하지 않는다.
+MNIST training 60,000개를 seed 42로 train 50,000 / validation 10,000으로 분리하고 validation으로 모델을 선택합니다. test 10,000개는 학습 중 선택에 사용하지 않습니다. `make test`는 수치 미분, optimizer, 저장 전후 예측, 데이터 분리와 입력 처리를 확인합니다.
 
-`models/reference.npz`에 실제 학습 모델을 포함하므로 demo·웹 추론에는 데이터 다운로드나 재학습이 필요 없다. NumPy arrays와 JSON manifest만 저장하고 pickle을 사용하지 않는다. 기본 제공 모델은 hidden [128,64], BN, dropout 0.1, Adam lr 0.001, batch 128, seed 42, 8 epoch로 학습했다. 2026-09-08 검증에서 validation 97.84%, 공식 test 97.80%였다. test는 선택한 모델에 대해 한 번 평가한 결과이며 미래 입력 정확도 보장이 아니다.
+## 현재 범위
 
-웹은 loopback에서 동작한다. 실제 28×28 입력과 모든 class 점수를 보여 주며 빈 입력은 거절한다. 원본 검증 예제 PNG는 MNIST test에서 각 숫자의 첫 항목을 가져왔다. 사용자 손그림은 자동으로 반전·crop·중심 정렬된다.
+이미지 한 장에 숫자 하나를 입력하는 MLP입니다. 손그림과 MNIST의 굵기·위치 차이로 오분류할 수 있으며 점수는 보정된 confidence가 아닙니다. CNN·OCR·여러 숫자 인식은 포함하지 않습니다.
 
-학습·저장·전처리·CLI는 [`application.py`](src/application.py), MLP 구성은 [`network.py`](src/network.py), 각 계층의 forward/backward는 [`layers.py`](src/layers.py), 손그림 화면은 [`web/index.html`](web/index.html)에 있다.
-
-## 검증과 관찰
-
-```sh
-make test
-```
-
-계층과 optimizer의 계산, 수치 미분과 backward의 일치, 저장 전후 예측, 데이터 분리, 이미지 반전과 빈 입력 처리를 검사한다. 모델의 학습 조건·데이터 해시·혼동행렬은 [`models/manifest.json`](models/manifest.json)에 있다. `evaluate`는 test 정확도와 혼동행렬, 오분류 이미지를 출력한다.
-
-## 지원 범위와 한계
-
-숫자 하나만 입력한다. CNN·ViT·여러 숫자·OCR·일반 이미지 분류·PyTorch 대체는 제외한다. MNIST와 손그림의 굵기·위치·필기 형태가 달라 오분류할 수 있다. class probability는 보정된 confidence가 아니다.
-
-`make train`/`make evaluate`는 데이터가 없으면 공개 Keras 배포의 `mnist.npz` 약 11 MiB를 내려받는다. 실제 모델 준비 시간·데이터 SHA-256은 `models/manifest.json`에 기록한다. 다운로드·의존성 설치 시간은 학습 시간에 포함하지 않는다. 기본 모델은 weights+BN 통계 복원용이며 optimizer까지 이어 학습하는 기능은 제공하지 않는다.
+학습·평가 시 데이터가 없으면 공개 Keras 배포의 `mnist.npz` 약 11 MiB를 내려받습니다. 제공 모델의 측정 정확도·데이터 해시·준비 비용은 [manifest](models/manifest.json)에 있습니다. 모델 복원은 추론용 weights·BN 통계까지이며 optimizer를 포함한 학습 재개는 지원하지 않습니다.
 
 ## 출처와 기여
 
